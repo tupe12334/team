@@ -1,4 +1,22 @@
 {
   "version": "0.2",
-  "words": []
+  "words": [
+    "callsites",
+    "centy",
+    "clippy",
+    "esprima",
+    "fdir",
+    "gensequence",
+    "monkeyc",
+    "picomatch",
+    "prost",
+    "protoc",
+    "reprioritize",
+    "smol",
+    "teamd",
+    "thiserror",
+    "timsort",
+    "tinyglobby",
+    "tlsv"
+  ]
 }
