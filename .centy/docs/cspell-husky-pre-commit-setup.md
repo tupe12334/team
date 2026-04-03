@@ -1,11 +1,10 @@
 ---
-title: Add cspell spell checking with Husky pre-commit hook
-date: 2026-04-03
-status: approved
-centy_issue: "#2"
+# This file is managed by Centy. Use the Centy CLI to modify it.
+createdAt: 2026-04-03T20:17:57.836555+00:00
+updatedAt: 2026-04-03T20:17:57.836555+00:00
 ---
 
-# cspell + Husky Pre-commit Setup
+# cspell + Husky pre-commit setup
 
 ## Goal
 
@@ -67,7 +66,7 @@ Add spell checking to the repo so typos in Rust source, Markdown, TOML, and JSON
 }
 ```
 
-Word list seeded from `.centy/cspell.json`. Additional project-specific words (Rust crate names, proto identifiers, etc.) will be added here as needed.
+Word list seeded from `.centy/cspell.json`. Additional project-specific words will be added here as needed.
 
 ### `.husky/pre-commit` (new)
 
@@ -92,5 +91,5 @@ After that, every `git commit` automatically spell-checks staged files.
 
 ## Out of Scope
 
-- Checking files in CI (can be added later as a separate issue)
-- Enforcing pnpm-only via `preinstall` script (not needed yet)
+- Checking files in CI (can be added later)
+- Enforcing pnpm-only via `preinstall` script
