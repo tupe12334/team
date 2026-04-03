@@ -54,14 +54,20 @@ impl QueueService for QueueServiceImpl {
                     )),
                 }));
             }
-            None => None,
+            None => {
+                return Ok(Response::new(EnqueueResponse {
+                    result: Some(enqueue_response::Result::Error(
+                        "issue_ref is required".to_string(),
+                    )),
+                }));
+            }
         };
         let task = Task {
             id: Uuid::new_v4().to_string(),
             issue_ref,
-            agent: req.agent.unwrap_or_default(),
+            agent: req.agent,
             status: TaskStatus::Queued as i32,
-            priority: 0,
+            priority: req.priority.unwrap_or(0),
             created_at: Some(now),
             updated_at: Some(now),
         };
@@ -98,7 +104,7 @@ impl QueueService for QueueServiceImpl {
             .ok_or_else(|| Status::not_found("task not found"))?;
 
         if let Some(agent) = req.agent {
-            task.agent = agent;
+            task.agent = Some(agent);
         }
         if let Some(priority) = req.priority {
             task.priority = priority;

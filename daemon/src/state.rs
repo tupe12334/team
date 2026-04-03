@@ -108,7 +108,8 @@ fn issue_ref_json_to_proto(j: IssueRefJson) -> Option<IssueRef> {
 struct TaskJson {
     id: String,
     issue_ref: Option<IssueRefJson>,
-    agent: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    agent: Option<String>,
     status: i32,
     priority: i32,
     created_at: Option<i64>,

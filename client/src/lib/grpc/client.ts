@@ -9,6 +9,7 @@ import type {
 } from "@/gen/daemon";
 import type {
   IssueRef,
+  IssueRefInput,
   Task,
   EnqueueResponse,
   ListQueueResponse,
@@ -17,7 +18,7 @@ import type {
 import type { WorkerStatusData, WorkerStatusResponse } from "@/gen/worker";
 
 export type { DaemonInfo, DaemonConfig } from "@/gen/daemon";
-export type { IssueRef, Task } from "@/gen/queue";
+export type { IssueRef, IssueRefInput, Task } from "@/gen/queue";
 export type { WorkerInfo, WorkerStatusData } from "@/gen/worker";
 
 export class ApiError extends Error {}
@@ -57,9 +58,9 @@ export async function queueList(): Promise<Task[]> {
   return res.ok?.tasks ?? [];
 }
 
-export async function queueEnqueue(issueRef: IssueRef, agent?: string): Promise<Task> {
+export async function queueEnqueue(issueRef: IssueRefInput, agent?: string, priority?: number): Promise<Task> {
   const c = getQueueClient();
-  const res = await grpcCall<EnqueueResponse>((cb) => c.enqueue({ issueRef, agent }, cb));
+  const res = await grpcCall<EnqueueResponse>((cb) => c.enqueue({ issueRef, agent, priority }, cb));
   return unwrap(res);
 }
 

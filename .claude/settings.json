@@ -80,7 +80,11 @@
       "Bash(xargs cat:*)",
       "Bash(cargo clippy:*)",
       "Bash(launchctl getenv:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "mcp__centy__centy_v1_CentyDaemon_ListProjects",
+      "mcp__centy__centy_v1_CentyDaemon_GetOrgIssue",
+      "Bash(go version:*)",
+      "Bash(buf --version)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }

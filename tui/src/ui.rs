@@ -86,7 +86,7 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
             Row::new(vec![
                 Cell::from(short_id),
                 Cell::from(issue),
-                Cell::from(task.agent.as_str()),
+                Cell::from(task.agent.as_deref().unwrap_or("")),
                 Cell::from(Span::styled(status_str, Style::default().fg(status_color))),
                 Cell::from(task.priority.to_string()),
             ])

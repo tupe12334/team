@@ -1,39 +1,40 @@
 /* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
+import type { IssueRef, IssueRefInput } from "@/gen/queue";
 
+export type { IssueRef };
 export class ApiError extends Error {}
-export type IssueProvider = "GITHUB" | "JIRA" | "CENTY" | "LINK";
-
-export type IssueRef =
-  | { provider: "GITHUB"; ref: "repoIssue"; repoIssue: { organization: string; repository: string; number: string } }
-  | { provider: "JIRA" | "CENTY"; ref: "id"; id: string }
-  | { provider: "LINK"; ref: "link"; url: string };
+export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
 
 export interface Task {
   id: string;
-  issueRef: IssueRef | null;
-  agent: string;
-  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  issueRef?: IssueRef;
+  agent?: string;
+  status: number;
   priority: number;
-  createdAt: string | null;
-  updatedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export function buildIssueRef(
+function buildIssueRef(
   provider: IssueProvider, org: string, repo: string,
   number: string, id: string, url: string
-): IssueRef | null {
-  if (provider === "GITHUB") {
+): IssueRefInput | null {
+  if (provider === "GITHUB" || provider === "CENTY") {
     if (!org.trim() || !repo.trim() || !number.trim()) return null;
-    return { provider: "GITHUB", ref: "repoIssue", repoIssue: { organization: org.trim(), repository: repo.trim(), number: number.trim() } };
+    const ref = { organization: org.trim(), repository: repo.trim(), number: number.trim() };
+    return provider === "GITHUB" ? { github: ref } : { centy: ref };
+  }
+  if (provider === "JIRA") {
+    if (!id.trim()) return null;
+    return { jira: { id: id.trim() } };
   }
   if (provider === "LINK") {
     if (!url.trim()) return null;
-    return { provider: "LINK", ref: "link", url: url.trim() };
+    return { link: { url: url.trim() } };
   }
-  if (!id.trim()) return null;
-  return { provider, ref: "id", id: id.trim() };
+  return null;
 }
 
 export function useQueuePanel() {
@@ -47,6 +48,7 @@ export function useQueuePanel() {
   const [issueId, setIssueId] = useState("");
   const [url, setUrl] = useState("");
   const [agent, setAgent] = useState("");
+  const [priority, setPriority] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -81,10 +83,10 @@ export function useQueuePanel() {
       const res = await fetch("/api/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issueRef, agent: agent.trim() || undefined }),
+        body: JSON.stringify({ issueRef, agent: agent.trim() || undefined, priority: priority || undefined }),
       });
       if (!res.ok) throw new ApiError(await res.text());
-      setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setUrl(""); setAgent("");
+      setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setUrl(""); setAgent(""); setPriority(0);
       await fetchTasks();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -107,6 +109,6 @@ export function useQueuePanel() {
     tasks, error, loading, provider, setProvider,
     org, setOrg, repo, setRepo, number, setNumber,
     issueId, setIssueId, url, setUrl, agent, setAgent,
-    submitting, deletingId, handleEnqueue, handleDelete,
+    priority, setPriority, submitting, deletingId, handleEnqueue, handleDelete,
   };
 }

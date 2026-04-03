@@ -3,24 +3,32 @@
 import SectionHeader from "@/components/SectionHeader";
 import { useQueuePanel, type Task, type IssueRef } from "@/components/useQueuePanel";
 
-const STATUS_STYLE: Record<Task["status"], string> = {
-  QUEUED:    "bg-zinc-800 text-zinc-300 border border-zinc-600/40",
-  RUNNING:   "bg-blue-950/60 text-blue-300 border border-blue-700/50",
-  COMPLETED: "bg-emerald-950/60 text-emerald-300 border border-emerald-700/50",
-  FAILED:    "bg-red-950/60 text-red-300 border border-red-700/50",
+const STATUS_STYLE: Record<number, string> = {
+  0: "bg-zinc-800 text-zinc-300 border border-zinc-600/40",
+  1: "bg-blue-950/60 text-blue-300 border border-blue-700/50",
+  2: "bg-emerald-950/60 text-emerald-300 border border-emerald-700/50",
+  3: "bg-red-950/60 text-red-300 border border-red-700/50",
+};
+
+const STATUS_NAMES: Record<number, string> = {
+  0: "QUEUED", 1: "RUNNING", 2: "COMPLETED", 3: "FAILED",
 };
 
 function formatIssueRef(ref: IssueRef): string {
-  if (ref.ref === "repoIssue") return `${ref.repoIssue.organization}/${ref.repoIssue.repository}#${ref.repoIssue.number}`;
-  if (ref.ref === "link") return `LINK:${ref.url}`;
-  return `${ref.provider}:${ref.id}`;
+  if (ref.github) return `${ref.github.organization}/${ref.github.repository}#${ref.github.number}`;
+  if (ref.centy) return `${ref.centy.organization}/${ref.centy.repository}#${ref.centy.number}`;
+  if (ref.jira) return `JIRA:${ref.jira.id}`;
+  return "unknown";
 }
 
 const live = <span className="queue-panel__live flex items-center gap-1.5 font-mono text-[10px] text-[#6e7681]"><span className="animate-pulse-dot w-1.5 h-1.5 rounded-full bg-orange-500/70" /> live · 5s</span>;
 
+const inputCls = "queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60";
+
 function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
   const { provider, setProvider, org, setOrg, repo, setRepo, number, setNumber,
-    issueId, setIssueId, url, setUrl, agent, setAgent, submitting, handleEnqueue } = panel;
+    issueId, setIssueId, url, setUrl, agent, setAgent, priority, setPriority,
+    submitting, handleEnqueue } = panel;
   return (
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     <form onSubmit={handleEnqueue} className="queue-panel__form flex gap-2 mb-5 flex-wrap items-center">
@@ -28,28 +36,30 @@ function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
       <select value={provider} onChange={(e) => { setProvider(e.target.value as typeof provider); }}
         className="queue-panel__provider font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] focus:outline-none focus:border-orange-500/60">
         <option className="queue-panel__option" value="GITHUB">GitHub</option>
-        <option className="queue-panel__option" value="JIRA">Jira</option>
         <option className="queue-panel__option" value="CENTY">Centy</option>
+        <option className="queue-panel__option" value="JIRA">Jira</option>
         <option className="queue-panel__option" value="LINK">Link</option>
       </select>
-      {provider === "GITHUB" ? (
+      {(provider === "GITHUB" || provider === "CENTY") ? (
         <>
           <input type="text" value={org} onChange={(e) => { setOrg(e.target.value); }} placeholder="org" required
-            className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-28" />
+            className={`${inputCls} w-28`} />
           <input type="text" value={repo} onChange={(e) => { setRepo(e.target.value); }} placeholder="repo" required
-            className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-28" />
+            className={`${inputCls} w-28`} />
           <input type="text" value={number} onChange={(e) => { setNumber(e.target.value); }} placeholder="#" required
-            className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-16" />
+            className={`${inputCls} w-16`} />
         </>
       ) : provider === "LINK" ? (
         <input type="url" value={url} onChange={(e) => { setUrl(e.target.value); }} placeholder="url" required
-          className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-64" />
+          className={`${inputCls} w-64`} />
       ) : (
         <input type="text" value={issueId} onChange={(e) => { setIssueId(e.target.value); }} placeholder="issue id" required
-          className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-44" />
+          className={`${inputCls} w-44`} />
       )}
       <input type="text" value={agent} onChange={(e) => { setAgent(e.target.value); }} placeholder="agent (optional)"
-        className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-36" />
+        className={`${inputCls} w-36`} />
+      <input type="number" value={priority || ""} onChange={(e) => { setPriority(Number(e.target.value) || 0); }} placeholder="priority"
+        className={`${inputCls} w-24`} min={0} />
       <button type="submit" disabled={submitting}
         className="queue-panel__submit font-mono text-xs px-4 py-2 rounded bg-orange-500/10 border border-orange-500/40 text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
         {submitting ? "Adding…" : "+ Enqueue"}
@@ -57,6 +67,7 @@ function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
     </form>
   );
 }
+
 export default function QueuePanel() {
   const panel = useQueuePanel();
   const { tasks, error, loading, handleDelete, deletingId } = panel;
@@ -85,7 +96,7 @@ export default function QueuePanel() {
                   <td className="queue-table__td font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">{task.issueRef ? formatIssueRef(task.issueRef) : <span className="queue-table__dash opacity-30">—</span>}</td>
                   <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.agent || <span className="queue-table__dash opacity-30">—</span>}</td>
                   <td className="queue-table__td py-2.5 pr-4">
-                    <span className={`font-mono text-[10px] tracking-wider px-2 py-0.5 rounded ${STATUS_STYLE[task.status]}`}>{task.status}</span>
+                    <span className={`font-mono text-[10px] tracking-wider px-2 py-0.5 rounded ${STATUS_STYLE[task.status] ?? ""}`}>{STATUS_NAMES[task.status] ?? task.status}</span>
                   </td>
                   <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.priority}</td>
                   <td className="queue-table__td py-2.5">

@@ -155,6 +155,7 @@
     "ratatui",
     "crossterm",
     "prettyplease",
-    "dotenvy"
+    "dotenvy",
+    "splitn"
   ]
 }

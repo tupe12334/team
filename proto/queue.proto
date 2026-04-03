@@ -63,7 +63,7 @@ enum TaskStatus {
 message Task {
   string id = 1;
   IssueRef issue_ref = 2;
-  string agent = 3;
+  optional string agent = 3;
   TaskStatus status = 4;
   int32 priority = 5;
   google.protobuf.Timestamp created_at = 6;
@@ -73,6 +73,7 @@ message Task {
 message EnqueueRequest {
   IssueRefInput issue_ref = 1;
   optional string agent = 2;
+  optional int32 priority = 3;
 }
 
 message EnqueueResponse {
