@@ -67,7 +67,10 @@
       "Bash(rustc:*)",
       "Bash(make generate:*)",
       "Bash(buf generate:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(node:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(npm info:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
