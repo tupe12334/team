@@ -8,7 +8,6 @@ import type {
   UpdateConfigResponse,
 } from "@/gen/daemon";
 import type {
-  IssueRef,
   IssueRefInput,
   Task,
   EnqueueResponse,

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import type { IssueRef, IssueRefInput } from "@/gen/queue";
 
-export type { IssueRef };
 export class ApiError extends Error {}
 export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
 
@@ -30,11 +29,9 @@ function buildIssueRef(
     if (!id.trim()) return null;
     return { jira: { id: id.trim() } };
   }
-  if (provider === "LINK") {
-    if (!url.trim()) return null;
-    return { link: { url: url.trim() } };
-  }
-  return null;
+  // LINK
+  if (!url.trim()) return null;
+  return { link: { url: url.trim() } };
 }
 
 export function useQueuePanel() {

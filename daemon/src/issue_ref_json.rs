@@ -20,20 +20,22 @@ pub(crate) enum IssueRefJson {
     },
 }
 
-impl IssueRefJson {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for IssueRefJson {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IssueRefJson::Github { organization, repository, number } => {
-                format!("github:{}/{}#{}", organization, repository, number)
+                write!(f, "github:{}/{}#{}", organization, repository, number)
             }
             IssueRefJson::Centy { organization, repository, number } => {
-                format!("centy:{}/{}#{}", organization, repository, number)
+                write!(f, "centy:{}/{}#{}", organization, repository, number)
             }
-            IssueRefJson::Jira { id } => format!("jira:{}", id),
-            IssueRefJson::Link { url } => format!("link:{}", url),
+            IssueRefJson::Jira { id } => write!(f, "jira:{}", id),
+            IssueRefJson::Link { url } => write!(f, "link:{}", url),
         }
     }
+}
 
+impl IssueRefJson {
     fn parse(s: &str) -> Result<Self, String> {
         if let Some(rest) = s.strip_prefix("github:") {
             let (repo_path, number) = rest.split_once('#').ok_or("missing '#' in github ref")?;
@@ -65,7 +67,7 @@ impl IssueRefJson {
 
 impl serde::Serialize for IssueRefJson {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
+        serializer.serialize_str(&self.to_string())  // uses Display impl
     }
 }
 
