@@ -30,7 +30,10 @@
       "WebFetch(domain:www.baeldung.com)",
       "WebFetch(domain:docs.cloud.google.com)",
       "WebFetch(domain:oneuptime.com)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(git diff:*)",
+      "Bash(pnpm spellcheck:*)",
+      "Bash(pnpm create:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
