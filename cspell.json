@@ -148,6 +148,8 @@
     "uritemplate",
     "yosida",
     "yallist",
-    "yocto"
+    "yocto",
+    "serde",
+    "winnow"
   ]
 }

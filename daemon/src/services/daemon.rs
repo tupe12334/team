@@ -79,6 +79,9 @@ impl DaemonService for DaemonServiceImpl {
             });
         let mut state = self.state.lock().await;
         state.config = new_config.clone();
+        if let Err(e) = state.save_config() {
+            return Err(Status::internal(format!("Failed to save config: {e}")));
+        }
         Ok(Response::new(UpdateConfigResponse {
             result: Some(update_config_response::Result::Ok(new_config)),
         }))
@@ -88,6 +91,8 @@ impl DaemonService for DaemonServiceImpl {
         &self,
         _request: Request<()>,
     ) -> Result<Response<ReloadConfigResponse>, Status> {
+        let mut state = self.state.lock().await;
+        state.reload_config();
         Ok(Response::new(ReloadConfigResponse {
             result: Some(reload_config_response::Result::Ok(())),
         }))
