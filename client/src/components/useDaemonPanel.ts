@@ -1,3 +1,4 @@
+/* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useState } from "react";
 
 export interface DaemonInfo {
@@ -6,6 +7,8 @@ export interface DaemonInfo {
   configPath: string;
   workersCount: number;
 }
+
+export class ApiError extends Error {}
 
 export function useDaemonPanel() {
   const [info, setInfo] = useState<DaemonInfo | null>(null);
@@ -17,7 +20,8 @@ export function useDaemonPanel() {
   const fetchInfo = useCallback(async () => {
     try {
       const res = await fetch("/api/daemon/info");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new ApiError(await res.text());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setInfo(await res.json());
       setError(null);
     } catch (e) {
@@ -27,7 +31,7 @@ export function useDaemonPanel() {
     }
   }, []);
 
-  useEffect(() => { fetchInfo(); }, [fetchInfo]);
+  useEffect(() => { void fetchInfo(); }, [fetchInfo]);
 
   const handleReload = async () => {
     setReloading(true);
