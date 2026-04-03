@@ -8,39 +8,23 @@ export class ApiError extends Error {}
 export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
 
 export interface Task {
-  id: string;
-  issueRef?: IssueRef;
-  agent?: string;
-  status: number;
-  priority: number;
-  createdAt?: string;
-  updatedAt?: string;
+  id: string; issueRef?: IssueRef; agent?: string;
+  status: number; priority: number; createdAt?: string; updatedAt?: string;
 }
 
-function buildIssueRef(
-  provider: IssueProvider, org: string, repo: string,
-  number: string, id: string, url: string
-): IssueRefInput | null {
+function buildIssueRef(provider: IssueProvider, org: string, repo: string, number: string, id: string, url: string): IssueRefInput | null {
   if (provider === "GITHUB" || provider === "CENTY") {
     if (!org.trim() || !repo.trim() || !number.trim()) return null;
     const ref = { organization: org.trim(), repository: repo.trim(), number: number.trim() };
     return provider === "GITHUB" ? { github: ref } : { centy: ref };
   }
-  if (provider === "JIRA") {
-    if (!id.trim()) return null;
-    return { jira: { id: id.trim() } };
-  }
-  // LINK
+  if (provider === "JIRA") { if (!id.trim()) return null; return { jira: { id: id.trim() } }; }
   if (!url.trim()) return null;
   return { link: { url: url.trim() } };
 }
 
-async function fetchAgents(): Promise<AgentInfo[]> {
-  const res = await fetch("/api/agents");
-  if (!res.ok) return [];
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return res.json();
-}
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+const loadAgents = (): Promise<AgentInfo[]> => fetch("/api/agents").then((r) => r.ok ? r.json() : []);
 
 export function useQueuePanel() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -48,13 +32,9 @@ export function useQueuePanel() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<IssueProvider>("GITHUB");
-  const [org, setOrg] = useState("");
-  const [repo, setRepo] = useState("");
-  const [number, setNumber] = useState("");
-  const [issueId, setIssueId] = useState("");
-  const [url, setUrl] = useState("");
-  const [agent, setAgent] = useState("");
-  const [priority, setPriority] = useState(0);
+  const [org, setOrg] = useState(""); const [repo, setRepo] = useState(""); const [number, setNumber] = useState("");
+  const [issueId, setIssueId] = useState(""); const [url, setUrl] = useState("");
+  const [agent, setAgent] = useState(""); const [priority, setPriority] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -64,17 +44,14 @@ export function useQueuePanel() {
       const res = await fetch("/api/queue");
       if (!res.ok) throw new ApiError(await res.text());
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      setTasks(await res.json());
-      setError(null);
+      setTasks(await res.json()); setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    void fetchAgents().then(setAgents).catch(() => { /* optional */ });
+    void loadAgents().then(setAgents).catch(() => { /* optional */ });
     void fetchTasks();
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     intervalRef.current = setInterval(fetchTasks, 5000);
@@ -97,19 +74,14 @@ export function useQueuePanel() {
       await fetchTasks();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    try {
-      await fetch(`/api/queue/${id}`, { method: "DELETE" });
-      setTasks((prev) => prev.filter((t) => t.id !== id));
-    } finally {
-      setDeletingId(null);
-    }
+    await fetch(`/api/queue/${id}`, { method: "DELETE" });
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setDeletingId(null);
   };
 
   return {
