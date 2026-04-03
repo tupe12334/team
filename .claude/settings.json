@@ -33,7 +33,8 @@
       "Bash(cargo build:*)",
       "Bash(git diff:*)",
       "Bash(pnpm spellcheck:*)",
-      "Bash(pnpm create:*)"
+      "Bash(pnpm create:*)",
+      "Bash(go mod:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
