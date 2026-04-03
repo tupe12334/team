@@ -260,7 +260,6 @@ fn format_issue_ref(issue_ref: &Option<crate::client::proto::IssueRef>) -> Strin
             Some(Ref::Github(g)) => format!("github:{}/{}/{}", g.organization, g.repository, g.number),
             Some(Ref::Centy(c)) => format!("centy:{}/{}/{}", c.organization, c.repository, c.number),
             Some(Ref::Jira(j)) => format!("jira:{}", j.id),
-            Some(Ref::Link(l)) => l.url.clone(),
         },
     }
 }
