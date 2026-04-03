@@ -54,7 +54,17 @@
       "Bash(cargo run:*)",
       "Bash(pnpm start:*)",
       "Bash(go work:*)",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(go list:*)",
+      "Bash(cargo check:*)",
+      "Bash(npm view:*)",
+      "Bash(ls:*)",
+      "Bash(cargo metadata:*)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(go get:*)",
+      "Bash(rustc:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }

@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "ignorePaths": ["**/go.sum", "**/pnpm-lock.yaml"],
+  "ignorePaths": ["**/go.sum", "**/go.work.sum", "**/pnpm-lock.yaml"],
   "words": [
     "argparse",
     "Baulch",
@@ -23,6 +23,7 @@
     "gonum",
     "gopkg",
     "gopath",
+    "GOWORK",
     "iancoleman",
     "idxs",
     "inconshreveable",
@@ -139,7 +140,13 @@
     "weakset",
     "genmcp",
     "mcpserver",
+    "connectrpc",
+    "jsonschema",
+    "protocolbuffers",
     "redpanda",
+    "redpandadata",
+    "uritemplate",
+    "yosida",
     "yallist",
     "yocto"
   ]

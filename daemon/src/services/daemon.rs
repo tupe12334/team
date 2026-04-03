@@ -5,8 +5,9 @@ use tonic::{Request, Response, Status};
 
 use crate::proto::daemon_service_server::DaemonService;
 use crate::proto::{
-    get_info_response, reload_config_response, shutdown_response, DaemonInfo, GetInfoResponse,
-    ReloadConfigResponse, ShutdownResponse,
+    get_config_response, get_info_response, reload_config_response, shutdown_response,
+    update_config_response, DaemonConfig, DaemonInfo, GetConfigResponse, GetInfoResponse,
+    ReloadConfigResponse, ShutdownResponse, UpdateConfigRequest, UpdateConfigResponse,
 };
 use crate::state::AppState;
 
@@ -52,6 +53,34 @@ impl DaemonService for DaemonServiceImpl {
         });
         Ok(Response::new(ShutdownResponse {
             result: Some(shutdown_response::Result::Ok(())),
+        }))
+    }
+
+    async fn get_config(
+        &self,
+        _request: Request<()>,
+    ) -> Result<Response<GetConfigResponse>, Status> {
+        let state = self.state.lock().await;
+        Ok(Response::new(GetConfigResponse {
+            result: Some(get_config_response::Result::Ok(state.config.clone())),
+        }))
+    }
+
+    async fn update_config(
+        &self,
+        request: Request<UpdateConfigRequest>,
+    ) -> Result<Response<UpdateConfigResponse>, Status> {
+        let new_config = request
+            .into_inner()
+            .config
+            .unwrap_or_else(|| DaemonConfig {
+                workers_count: 4,
+                log_level: "info".to_string(),
+            });
+        let mut state = self.state.lock().await;
+        state.config = new_config.clone();
+        Ok(Response::new(UpdateConfigResponse {
+            result: Some(update_config_response::Result::Ok(new_config)),
         }))
     }
 
