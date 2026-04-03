@@ -78,7 +78,9 @@
       "Bash(find:*)",
       "Bash(npx eslint:*)",
       "Bash(xargs cat:*)",
-      "Bash(cargo clippy:*)"
+      "Bash(cargo clippy:*)",
+      "Bash(launchctl getenv:*)",
+      "Bash(xargs kill:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }

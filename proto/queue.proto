@@ -34,7 +34,17 @@ message LinkRef {
   string url = 1;
 }
 
+// Used in responses — never contains a LinkRef.
 message IssueRef {
+  oneof ref {
+    GitHubIssueRef github = 1;
+    CentyIssueRef centy = 2;
+    JiraIssueRef jira = 3;
+  }
+}
+
+// Used only in creation requests — allows a LinkRef in addition to concrete refs.
+message IssueRefInput {
   oneof ref {
     GitHubIssueRef github = 1;
     CentyIssueRef centy = 2;
@@ -61,7 +71,7 @@ message Task {
 }
 
 message EnqueueRequest {
-  IssueRef issue_ref = 1;
+  IssueRefInput issue_ref = 1;
   optional string agent = 2;
 }
 
