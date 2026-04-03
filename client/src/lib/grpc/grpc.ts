@@ -19,7 +19,7 @@ const LOAD_OPTIONS: Options = {
   oneofs: true,
 };
 
-class DaemonPortMissingError extends Error {
+export class DaemonPortMissingError extends Error {
   constructor() {
     super("DAEMON_PORT must be set in .env");
   }
