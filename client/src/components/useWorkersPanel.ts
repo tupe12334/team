@@ -1,4 +1,7 @@
+/* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useRef, useState } from "react";
+
+export class ApiError extends Error {}
 
 export interface WorkerInfo {
   workerId: string;
@@ -24,7 +27,8 @@ export function useWorkersPanel() {
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/workers");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new ApiError(await res.text());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setData(await res.json());
       setError(null);
     } catch (e) {
@@ -35,7 +39,8 @@ export function useWorkersPanel() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    void fetchStatus();
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     intervalRef.current = setInterval(fetchStatus, 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchStatus]);
