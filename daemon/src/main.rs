@@ -23,9 +23,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port = std::env::var("DAEMON_PORT").expect("DAEMON_PORT must be set");
     let addr = format!("[::1]:{port}").parse()?;
 
-    let shared_state = Arc::new(Mutex::new(AppState::new(
-        std::env::var("CONFIG_PATH").unwrap_or_else(|_| "/etc/team/config.toml".to_string()),
-    )));
+    let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").expect("HOME must be set");
+        format!("{home}/.config/team/config.toml")
+    });
+    let shared_state = Arc::new(Mutex::new(AppState::new(config_path)));
 
     println!("Daemon listening on {addr}");
 
