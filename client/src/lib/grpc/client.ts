@@ -157,6 +157,29 @@ export async function queueRemoveTask(taskId: string): Promise<void> {
   await grpcCall(getQueueClient(), "removeTask", { taskId });
 }
 
+export interface DaemonConfig {
+  workersCount: number;
+  logLevel: string;
+}
+
+export async function daemonGetConfig(): Promise<DaemonConfig> {
+  const res = await grpcCall<object, OneofResponse<DaemonConfig>>(
+    getDaemonClient(),
+    "getConfig",
+    {}
+  );
+  return unwrap(res);
+}
+
+export async function daemonUpdateConfig(config: DaemonConfig): Promise<DaemonConfig> {
+  const res = await grpcCall<{ config: DaemonConfig }, OneofResponse<DaemonConfig>>(
+    getDaemonClient(),
+    "updateConfig",
+    { config }
+  );
+  return unwrap(res);
+}
+
 export async function workerGetStatus(): Promise<WorkerStatusData> {
   const res = await grpcCall<object, OneofResponse<WorkerStatusData>>(
     getWorkerClient(),

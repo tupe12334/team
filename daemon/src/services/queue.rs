@@ -41,7 +41,7 @@ impl QueueService for QueueServiceImpl {
             agent: req.agent.unwrap_or_default(),
             status: TaskStatus::Queued as i32,
             priority: 0,
-            created_at: Some(now.clone()),
+            created_at: Some(now),
             updated_at: Some(now),
         };
         let mut state = self.state.lock().await;
