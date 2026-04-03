@@ -23,7 +23,6 @@ function buildIssueRef(provider: IssueProvider, org: string, repo: string, numbe
   return { link: { url: url.trim() } };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 const loadAgents = (): Promise<AgentInfo[]> => fetch("/api/agents").then((r) => r.ok ? r.json() : []);
 
 export function useQueuePanel() {
