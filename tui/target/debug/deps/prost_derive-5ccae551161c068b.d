@@ -1,0 +1,11 @@
+/Users/ofek/dev/git/github/tupe12334/team/tui/target/debug/deps/prost_derive-5ccae551161c068b.d: /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/lib.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/mod.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/group.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/map.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/message.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/oneof.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/scalar.rs
+
+/Users/ofek/dev/git/github/tupe12334/team/tui/target/debug/deps/libprost_derive-5ccae551161c068b.dylib: /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/lib.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/mod.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/group.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/map.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/message.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/oneof.rs /Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/scalar.rs
+
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/lib.rs:
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/mod.rs:
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/group.rs:
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/map.rs:
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/message.rs:
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/oneof.rs:
+/Users/ofek/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/prost-derive-0.13.5/src/field/scalar.rs:

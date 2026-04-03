@@ -30,11 +30,16 @@ message JiraIssueRef {
   string id = 1;
 }
 
+message LinkRef {
+  string url = 1;
+}
+
 message IssueRef {
   oneof ref {
     GitHubIssueRef github = 1;
     CentyIssueRef centy = 2;
     JiraIssueRef jira = 3;
+    LinkRef link = 4;
   }
 }
 

@@ -1,0 +1,162 @@
+use std::time::{Duration, Instant};
+
+use color_eyre::Result;
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::DefaultTerminal;
+
+use crate::client::{Client, DaemonInfo, Task, WorkerStatusData};
+use crate::ui;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Tab {
+    Queue,
+    Workers,
+    Daemon,
+}
+
+impl Tab {
+    pub const ALL: [Tab; 3] = [Tab::Queue, Tab::Workers, Tab::Daemon];
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Tab::Queue => "Queue",
+            Tab::Workers => "Workers",
+            Tab::Daemon => "Daemon",
+        }
+    }
+}
+
+pub struct App {
+    pub client: Client,
+    pub active_tab: Tab,
+    pub tasks: Vec<Task>,
+    pub worker_status: Option<WorkerStatusData>,
+    pub daemon_info: Option<DaemonInfo>,
+    pub error: Option<String>,
+    pub selected_task: usize,
+    last_refresh: Instant,
+}
+
+impl App {
+    pub async fn new(addr: String) -> Result<Self> {
+        let client = Client::connect(addr).await?;
+        Ok(Self {
+            client,
+            active_tab: Tab::Queue,
+            tasks: vec![],
+            worker_status: None,
+            daemon_info: None,
+            error: None,
+            selected_task: 0,
+            last_refresh: Instant::now() - Duration::from_secs(10),
+        })
+    }
+
+    pub async fn run(&mut self) -> Result<()> {
+        let mut terminal = ratatui::init();
+        let result = self.event_loop(&mut terminal).await;
+        ratatui::restore();
+        result
+    }
+
+    async fn event_loop(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+        loop {
+            if self.last_refresh.elapsed() >= Duration::from_secs(2) {
+                self.refresh().await;
+            }
+
+            terminal.draw(|f| ui::render(f, self))?;
+
+            if event::poll(Duration::from_millis(250))? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+                    match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => break,
+                        KeyCode::Tab | KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
+                        KeyCode::BackTab | KeyCode::Char('h') | KeyCode::Left => {
+                            self.prev_tab();
+                        }
+                        KeyCode::Char('j') | KeyCode::Down => self.select_next(),
+                        KeyCode::Char('k') | KeyCode::Up => self.select_prev(),
+                        KeyCode::Char('r') => {
+                            self.last_refresh =
+                                Instant::now() - Duration::from_secs(10);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn refresh(&mut self) {
+        self.last_refresh = Instant::now();
+        self.error = None;
+
+        match self.client.list_tasks().await {
+            Ok(tasks) => self.tasks = tasks,
+            Err(e) => self.error = Some(format!("Queue: {e}")),
+        }
+
+        match self.client.get_worker_status().await {
+            Ok(status) => self.worker_status = status,
+            Err(e) => {
+                if self.error.is_none() {
+                    self.error = Some(format!("Workers: {e}"));
+                }
+            }
+        }
+
+        match self.client.get_daemon_info().await {
+            Ok(info) => self.daemon_info = info,
+            Err(e) => {
+                if self.error.is_none() {
+                    self.error = Some(format!("Daemon: {e}"));
+                }
+            }
+        }
+
+        if self.selected_task >= self.tasks.len() && !self.tasks.is_empty() {
+            self.selected_task = self.tasks.len() - 1;
+        }
+    }
+
+    fn next_tab(&mut self) {
+        let idx = Tab::ALL.iter().position(|t| *t == self.active_tab).unwrap_or(0);
+        self.active_tab = Tab::ALL[(idx + 1) % Tab::ALL.len()];
+    }
+
+    fn prev_tab(&mut self) {
+        let idx = Tab::ALL.iter().position(|t| *t == self.active_tab).unwrap_or(0);
+        self.active_tab = Tab::ALL[(idx + Tab::ALL.len() - 1) % Tab::ALL.len()];
+    }
+
+    fn select_next(&mut self) {
+        let len = match self.active_tab {
+            Tab::Queue => self.tasks.len(),
+            Tab::Workers => {
+                self.worker_status.as_ref().map_or(0, |w| w.workers.len())
+            }
+            Tab::Daemon => 0,
+        };
+        if len > 0 {
+            self.selected_task = (self.selected_task + 1) % len;
+        }
+    }
+
+    fn select_prev(&mut self) {
+        let len = match self.active_tab {
+            Tab::Queue => self.tasks.len(),
+            Tab::Workers => {
+                self.worker_status.as_ref().map_or(0, |w| w.workers.len())
+            }
+            Tab::Daemon => 0,
+        };
+        if len > 0 {
+            self.selected_task = (self.selected_task + len - 1) % len;
+        }
+    }
+}
