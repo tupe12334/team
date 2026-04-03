@@ -6,7 +6,7 @@ export
 
 .PHONY: generate
 generate: ## Regenerate all code from proto files
-	PATH=$(PATH) buf generate
+	export PATH="$$PATH:$(CURDIR)/node_modules/.bin" && buf generate
 	# Workaround for protoc-gen-cobra bug: &Empty{} → &emptypb.Empty{}
 	# https://github.com/NathanBaulch/protoc-gen-cobra/issues (unqualified Empty for google.protobuf.Empty)
 	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/daemon.cobra.pb.go

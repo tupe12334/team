@@ -1,23 +1,7 @@
-import path from "path";
-import {
-  credentials,
-  Client,
-  ServiceError,
-  loadPackageDefinition,
-  ServiceClientConstructor,
-} from "@grpc/grpc-js";
-import { loadSync, Options } from "@grpc/proto-loader";
-
-const PROTO_DIR =
-  process.env.PROTO_DIR ?? path.resolve(process.cwd(), "..", "proto");
-
-const LOAD_OPTIONS: Options = {
-  keepCase: false,
-  longs: String,
-  enums: String,
-  defaults: true,
-  oneofs: true,
-};
+import { credentials, ServiceError } from "@grpc/grpc-js";
+import { DaemonServiceClient } from "@/gen/daemon";
+import { QueueServiceClient } from "@/gen/queue";
+import { WorkerServiceClient } from "@/gen/worker";
 
 export class DaemonPortMissingError extends Error {
   constructor() {
@@ -25,49 +9,31 @@ export class DaemonPortMissingError extends Error {
   }
 }
 
-function makeClient(protoFile: string, serviceName: string): Client {
+function getDaemonAddr(): string {
   const daemonPort = process.env.DAEMON_PORT;
   if (!daemonPort) throw new DaemonPortMissingError();
-  const daemonHost = process.env.DAEMON_HOST ?? "localhost";
-  const daemonAddr = `${daemonHost}:${daemonPort}`;
-  const packageDef = loadSync(path.join(PROTO_DIR, protoFile), LOAD_OPTIONS);
-  const pkg = loadPackageDefinition(packageDef) as Record<
-    string,
-    Record<string, ServiceClientConstructor>
-  >;
-  // eslint-disable-next-line security/detect-object-injection
-  const ServiceCtor = pkg.team[serviceName];
-  return new ServiceCtor(daemonAddr, credentials.createInsecure());
+  return `${process.env.DAEMON_HOST ?? "localhost"}:${daemonPort}`;
 }
 
-let _daemon: Client | null = null;
-let _queue: Client | null = null;
-let _worker: Client | null = null;
+let _daemon: DaemonServiceClient | null = null;
+let _queue: QueueServiceClient | null = null;
+let _worker: WorkerServiceClient | null = null;
 
 export const getDaemonClient = () =>
-  (_daemon ??= makeClient("daemon.proto", "DaemonService"));
+  (_daemon ??= new DaemonServiceClient(getDaemonAddr(), credentials.createInsecure()));
 export const getQueueClient = () =>
-  (_queue ??= makeClient("queue.proto", "QueueService"));
+  (_queue ??= new QueueServiceClient(getDaemonAddr(), credentials.createInsecure()));
 export const getWorkerClient = () =>
-  (_worker ??= makeClient("worker.proto", "WorkerService"));
-
-type GrpcMethod = (
-  req: object,
-  cb: (err: ServiceError | null, res: unknown) => void
-) => void;
+  (_worker ??= new WorkerServiceClient(getDaemonAddr(), credentials.createInsecure()));
 
 /** Promisified gRPC unary call. */
 export function grpcCall<TRes>(
-  client: Client,
-  method: string,
-  request: object
+  fn: (cb: (err: ServiceError | null, res: TRes) => void) => void
 ): Promise<TRes> {
   return new Promise((resolve, reject) => {
-    // eslint-disable-next-line security/detect-object-injection
-    const fn = (client as unknown as Record<string, GrpcMethod>)[method];
-    fn(request, (err, response) => {
+    fn((err, response) => {
       if (err) reject(err);
-      else resolve(response as TRes);
+      else resolve(response);
     });
   });
 }

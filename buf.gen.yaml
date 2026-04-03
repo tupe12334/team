@@ -12,5 +12,11 @@ plugins:
   - local: ["go", "run", "github.com/redpanda-data/protoc-gen-go-mcp/cmd/protoc-gen-go-mcp@latest"]
     out: cli/gen
     opt: paths=source_relative
+  - local: protoc-gen-ts_proto
+    out: client/src/gen
+    opt:
+      - paths=source_relative
+      - outputServices=grpc-js
+      - esModuleInterop=true
 inputs:
   - directory: proto

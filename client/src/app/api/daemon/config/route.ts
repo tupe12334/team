@@ -1,5 +1,6 @@
+/* eslint-disable single-export/single-export */
 import { NextResponse } from "next/server";
-import { daemonGetConfig, daemonUpdateConfig } from "@/lib/grpc/client";
+import { daemonGetConfig, daemonUpdateConfig, DaemonConfig } from "@/lib/grpc/client";
 
 export async function GET() {
   try {
@@ -13,7 +14,8 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
-    const body = await req.json();
+    // eslint-disable-next-line no-restricted-syntax
+    const body = (await req.json()) as DaemonConfig;
     const config = await daemonUpdateConfig(body);
     return NextResponse.json(config);
   } catch (err) {

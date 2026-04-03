@@ -1,60 +1,57 @@
 import { getDaemonClient, getQueueClient, getWorkerClient, grpcCall } from "./grpc";
-import {
+import type {
   DaemonInfo,
   DaemonConfig,
+  GetInfoResponse,
+  GetConfigResponse,
+  UpdateConfigResponse,
+} from "@/gen/daemon";
+import type {
   IssueRef,
-  OneofResponse,
   Task,
-  WorkerStatusData,
-  unwrap,
-} from "./types";
+  EnqueueResponse,
+  ListQueueResponse,
+  UpdateTaskResponse,
+} from "@/gen/queue";
+import type { WorkerStatusData, WorkerStatusResponse } from "@/gen/worker";
 
-export type {
-  DaemonInfo,
-  DaemonConfig,
-  IssueRef,
-  IssueProvider,
-  RepoIssueRef,
-  Task,
-  WorkerInfo,
-  WorkerStatusData,
-} from "./types";
+export type { DaemonInfo, DaemonConfig } from "@/gen/daemon";
+export type { IssueRef, Task } from "@/gen/queue";
+export type { WorkerInfo, WorkerStatusData } from "@/gen/worker";
+
+function unwrap<T>(response: { ok?: T; task?: T; error?: string }): T {
+  if (response.error !== undefined) throw new Error(response.error);
+  const value = response.ok ?? response.task;
+  if (value === undefined) throw new Error("Empty response");
+  return value;
+}
 
 export async function daemonGetInfo(): Promise<DaemonInfo> {
-  const res = await grpcCall<OneofResponse<DaemonInfo>>(
-    getDaemonClient(),
-    "getInfo",
-    {}
-  );
+  const c = getDaemonClient();
+  const res = await grpcCall<GetInfoResponse>((cb) => c.getInfo({}, cb));
   return unwrap(res);
 }
 
 export async function daemonShutdown(): Promise<void> {
-  await grpcCall(getDaemonClient(), "shutdown", {});
+  const c = getDaemonClient();
+  await grpcCall((cb) => c.shutdown({}, cb));
 }
 
 export async function daemonReloadConfig(): Promise<void> {
-  await grpcCall(getDaemonClient(), "reloadConfig", {});
+  const c = getDaemonClient();
+  await grpcCall((cb) => c.reloadConfig({}, cb));
 }
 
 export async function queueList(): Promise<Task[]> {
-  const res = await grpcCall<OneofResponse<{ tasks: Task[] }>>(
-    getQueueClient(),
-    "listQueue",
-    {}
-  );
-  return unwrap(res).tasks;
+  const c = getQueueClient();
+  const res = await grpcCall<ListQueueResponse>((cb) => c.listQueue({}, cb));
+  if (res.error !== undefined) throw new Error(res.error);
+  return res.ok?.tasks ?? [];
 }
 
-export async function queueEnqueue(
-  issueRef: IssueRef,
-  agent?: string
-): Promise<Task> {
-  const res = await grpcCall<OneofResponse<Task>>(
-    getQueueClient(),
-    "enqueue",
-    { issueRef, agent }
-  );
+export async function queueEnqueue(issueRef: IssueRef, agent?: string): Promise<Task> {
+  const c = getQueueClient();
+  const res = await grpcCall<EnqueueResponse>((cb) => c.enqueue({ issueRef, agent }, cb));
   return unwrap(res);
 }
 
@@ -62,43 +59,30 @@ export async function queueUpdateTask(
   taskId: string,
   update: { agent?: string; priority?: number }
 ): Promise<Task> {
-  const res = await grpcCall<OneofResponse<Task>>(
-    getQueueClient(),
-    "updateTask",
-    { taskId, ...update }
-  );
+  const c = getQueueClient();
+  const res = await grpcCall<UpdateTaskResponse>((cb) => c.updateTask({ taskId, ...update }, cb));
   return unwrap(res);
 }
 
 export async function queueRemoveTask(taskId: string): Promise<void> {
-  await grpcCall(getQueueClient(), "removeTask", { taskId });
+  const c = getQueueClient();
+  await grpcCall((cb) => c.removeTask({ taskId }, cb));
 }
 
 export async function daemonGetConfig(): Promise<DaemonConfig> {
-  const res = await grpcCall<OneofResponse<DaemonConfig>>(
-    getDaemonClient(),
-    "getConfig",
-    {}
-  );
+  const c = getDaemonClient();
+  const res = await grpcCall<GetConfigResponse>((cb) => c.getConfig({}, cb));
   return unwrap(res);
 }
 
-export async function daemonUpdateConfig(
-  config: DaemonConfig
-): Promise<DaemonConfig> {
-  const res = await grpcCall<OneofResponse<DaemonConfig>>(
-    getDaemonClient(),
-    "updateConfig",
-    { config }
-  );
+export async function daemonUpdateConfig(config: DaemonConfig): Promise<DaemonConfig> {
+  const c = getDaemonClient();
+  const res = await grpcCall<UpdateConfigResponse>((cb) => c.updateConfig({ config }, cb));
   return unwrap(res);
 }
 
 export async function workerGetStatus(): Promise<WorkerStatusData> {
-  const res = await grpcCall<OneofResponse<WorkerStatusData>>(
-    getWorkerClient(),
-    "getWorkerStatus",
-    {}
-  );
+  const c = getWorkerClient();
+  const res = await grpcCall<WorkerStatusResponse>((cb) => c.getWorkerStatus({}, cb));
   return unwrap(res);
 }
