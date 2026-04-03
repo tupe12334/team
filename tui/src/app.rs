@@ -67,25 +67,25 @@ impl App {
 
             terminal.draw(|f| ui::render(f, self))?;
 
-            if event::poll(Duration::from_millis(250))? {
-                if let Event::Key(key) = event::read()? {
-                    if key.kind != KeyEventKind::Press {
-                        continue;
+            if event::poll(Duration::from_millis(250))?
+                && let Event::Key(key) = event::read()?
+            {
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => break,
+                    KeyCode::Tab | KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
+                    KeyCode::BackTab | KeyCode::Char('h') | KeyCode::Left => {
+                        self.prev_tab();
                     }
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => break,
-                        KeyCode::Tab | KeyCode::Char('l') | KeyCode::Right => self.next_tab(),
-                        KeyCode::BackTab | KeyCode::Char('h') | KeyCode::Left => {
-                            self.prev_tab();
-                        }
-                        KeyCode::Char('j') | KeyCode::Down => self.select_next(),
-                        KeyCode::Char('k') | KeyCode::Up => self.select_prev(),
-                        KeyCode::Char('r') => {
-                            self.last_refresh =
-                                Instant::now() - Duration::from_secs(10);
-                        }
-                        _ => {}
+                    KeyCode::Char('j') | KeyCode::Down => self.select_next(),
+                    KeyCode::Char('k') | KeyCode::Up => self.select_prev(),
+                    KeyCode::Char('r') => {
+                        self.last_refresh =
+                            Instant::now() - Duration::from_secs(10);
                     }
+                    _ => {}
                 }
             }
         }
