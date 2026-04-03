@@ -1,3 +1,4 @@
+/* eslint-disable single-export/single-export */
 import { getDaemonClient, getQueueClient, getWorkerClient, grpcCall } from "./grpc";
 import type {
   DaemonInfo,
@@ -19,10 +20,16 @@ export type { DaemonInfo, DaemonConfig } from "@/gen/daemon";
 export type { IssueRef, Task } from "@/gen/queue";
 export type { WorkerInfo, WorkerStatusData } from "@/gen/worker";
 
+export class ApiError extends Error {}
+export class EmptyResponseError extends Error {
+  constructor() { super("Empty response"); }
+}
+
 function unwrap<T>(response: { ok?: T; task?: T; error?: string }): T {
-  if (response.error !== undefined) throw new Error(response.error);
+  if (response.error !== undefined) throw new ApiError(response.error);
+  // eslint-disable-next-line no-restricted-syntax
   const value = response.ok ?? response.task;
-  if (value === undefined) throw new Error("Empty response");
+  if (value === undefined) throw new EmptyResponseError();
   return value;
 }
 
@@ -45,7 +52,8 @@ export async function daemonReloadConfig(): Promise<void> {
 export async function queueList(): Promise<Task[]> {
   const c = getQueueClient();
   const res = await grpcCall<ListQueueResponse>((cb) => c.listQueue({}, cb));
-  if (res.error !== undefined) throw new Error(res.error);
+  if (res.error !== undefined) throw new ApiError(res.error);
+  // eslint-disable-next-line no-restricted-syntax
   return res.ok?.tasks ?? [];
 }
 
