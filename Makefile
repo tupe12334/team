@@ -19,3 +19,13 @@ install: ## Install the CLI to GOBIN
 .PHONY: mcp
 mcp: ## Build the MCP server binary
 	cd mcp && go mod tidy && go build -o ../bin/mcp-server .
+
+.PHONY: run
+run: ## Run the daemon and client concurrently
+	cd daemon && cargo run & cd client && pnpm dev; kill %1
+
+.PHONY: lint
+lint: ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
+	go vet ./cli/... ./mcp/...
+	cd daemon && cargo clippy -- -D warnings
+	cd client && pnpm lint
