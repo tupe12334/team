@@ -9,5 +9,8 @@ plugins:
   - local: protoc-gen-cobra
     out: cli/gen
     opt: paths=source_relative
+  - local: ["go", "run", "github.com/redpanda-data/protoc-gen-go-mcp/cmd/protoc-gen-go-mcp@latest"]
+    out: cli/gen
+    opt: paths=source_relative
 inputs:
   - directory: proto

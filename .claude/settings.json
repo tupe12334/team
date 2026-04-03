@@ -34,7 +34,10 @@
       "Bash(git diff:*)",
       "Bash(pnpm spellcheck:*)",
       "Bash(pnpm create:*)",
-      "Bash(go mod:*)"
+      "Bash(go mod:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm install:*)",
+      "Bash(go install:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }

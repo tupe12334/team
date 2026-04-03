@@ -137,6 +137,9 @@
     "weakmap",
     "weakref",
     "weakset",
+    "genmcp",
+    "mcpserver",
+    "redpanda",
     "yallist",
     "yocto"
   ]
