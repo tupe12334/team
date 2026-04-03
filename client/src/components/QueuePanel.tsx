@@ -42,7 +42,7 @@ function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
             className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-16" />
         </>
       ) : provider === "LINK" ? (
-        <input type="url" value={url} onChange={(e) => { setUrl(e.target.value); }} placeholder="https://…" required
+        <input type="url" value={url} onChange={(e) => { setUrl(e.target.value); }} placeholder="url" required
           className="queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-64" />
       ) : (
         <input type="text" value={issueId} onChange={(e) => { setIssueId(e.target.value); }} placeholder="issue id" required
@@ -57,23 +57,16 @@ function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
     </form>
   );
 }
-
 export default function QueuePanel() {
   const panel = useQueuePanel();
   const { tasks, error, loading, handleDelete, deletingId } = panel;
-
   return (
     <section className="border border-[#1c2736] rounded-lg bg-[#0d1117] p-6 animate-fade-up" style={{ animationDelay: "60ms" }}>
       <SectionHeader right={live}>Queue</SectionHeader>
       <EnqueueForm panel={panel} />
-      {error && (
-        <p className="queue-panel__error font-mono text-xs text-red-400 bg-red-950/30 border border-red-900/50 rounded px-3 py-2 mb-4">{error}</p>
-      )}
+      {error && <p className="queue-panel__error font-mono text-xs text-red-400 bg-red-950/30 border border-red-900/50 rounded px-3 py-2 mb-4">{error}</p>}
       {loading ? (
-        <div className="queue-panel__loading flex items-center gap-2 text-[#6e7681] font-mono text-xs py-4">
-          <span className="animate-spin-slow inline-block w-3 h-3 border border-[#6e7681] border-t-transparent rounded-full" />
-          Loading…
-        </div>
+        <div className="queue-panel__loading flex items-center gap-2 text-[#6e7681] font-mono text-xs py-4"><span className="animate-spin-slow inline-block w-3 h-3 border border-[#6e7681] border-t-transparent rounded-full" /> Loading…</div>
       ) : tasks.length === 0 ? (
         <p className="queue-panel__empty font-mono text-xs text-[#6e7681] py-4 text-center border border-dashed border-[#1c2736] rounded">Queue is empty</p>
       ) : (
