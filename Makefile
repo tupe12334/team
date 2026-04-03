@@ -9,8 +9,10 @@ generate: ## Regenerate all code from proto files
 	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/daemon.cobra.pb.go
 
 .PHONY: build
-build: ## Build the CLI binary
+build: ## Build the CLI binary, daemon, and client
 	cd cli && go build -o ../bin/team .
+	cd daemon && cargo build
+	cd client && pnpm build
 
 .PHONY: install
 install: ## Install the CLI to GOBIN
@@ -26,6 +28,6 @@ run: ## Run the daemon and client concurrently
 
 .PHONY: lint
 lint: ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
-	go vet ./cli/... ./mcp/...
+	cd cli && GOWORK=off go vet ./...
 	cd daemon && cargo clippy -- -D warnings
 	cd client && pnpm lint
