@@ -4,9 +4,6 @@ import path from "path";
 
 const PROTO_DIR =
   process.env.PROTO_DIR ?? path.resolve(process.cwd(), "..", "proto");
-if (!process.env.DAEMON_ADDR) throw new Error("DAEMON_ADDR must be set");
-const DAEMON_ADDR: string = process.env.DAEMON_ADDR;
-
 const LOAD_OPTIONS: protoLoader.Options = {
   keepCase: false,
   longs: String,
@@ -16,6 +13,8 @@ const LOAD_OPTIONS: protoLoader.Options = {
 };
 
 function makeClient(protoFile: string, serviceName: string): grpc.Client {
+  const daemonAddr = process.env.DAEMON_ADDR;
+  if (!daemonAddr) throw new Error("DAEMON_ADDR must be set");
   const packageDef = protoLoader.loadSync(
     path.join(PROTO_DIR, protoFile),
     LOAD_OPTIONS
@@ -25,7 +24,7 @@ function makeClient(protoFile: string, serviceName: string): grpc.Client {
     Record<string, grpc.ServiceClientConstructor>
   >;
   const ServiceCtor = pkg["team"][serviceName];
-  return new ServiceCtor(DAEMON_ADDR, grpc.credentials.createInsecure());
+  return new ServiceCtor(daemonAddr, grpc.credentials.createInsecure());
 }
 
 // Singletons — reuse the same channel across requests
