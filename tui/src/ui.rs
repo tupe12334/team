@@ -257,8 +257,8 @@ fn format_issue_ref(issue_ref: &Option<crate::client::proto::IssueRef>) -> Strin
         None => "-".to_string(),
         Some(r) => match &r.r#ref {
             None => "-".to_string(),
-            Some(Ref::Github(g)) => format!("github:{}/{}/{}", g.organization, g.repository, g.number),
-            Some(Ref::Centy(c)) => format!("centy:{}/{}/{}", c.organization, c.repository, c.number),
+            Some(Ref::Github(g)) => format!("github:{}/{}#{}", g.organization, g.repository, g.number),
+            Some(Ref::Centy(c)) => format!("centy:{}/{}#{}", c.organization, c.repository, c.number),
             Some(Ref::Jira(j)) => format!("jira:{}", j.id),
         },
     }

@@ -1,7 +1,5 @@
-use crate::proto::{
-    issue_ref, CentyIssueRef, DaemonConfig, GitHubIssueRef, IssueRef, JiraIssueRef, Task,
-    WorkerInfo,
-};
+use crate::issue_ref_json::{issue_ref_json_to_proto, IssueRefJson};
+use crate::proto::{DaemonConfig, Task, WorkerInfo};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -37,72 +35,6 @@ impl From<&DaemonConfig> for ConfigFile {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum IssueRefJson {
-    Github {
-        organization: String,
-        repository: String,
-        number: String,
-    },
-    Centy {
-        organization: String,
-        repository: String,
-        number: String,
-    },
-    Jira {
-        id: String,
-    },
-    Link {
-        url: String,
-    },
-}
-
-impl From<IssueRef> for IssueRefJson {
-    fn from(r: IssueRef) -> Self {
-        match r.r#ref {
-            Some(issue_ref::Ref::Github(g)) => IssueRefJson::Github {
-                organization: g.organization,
-                repository: g.repository,
-                number: g.number,
-            },
-            Some(issue_ref::Ref::Centy(c)) => IssueRefJson::Centy {
-                organization: c.organization,
-                repository: c.repository,
-                number: c.number,
-            },
-            Some(issue_ref::Ref::Jira(j)) => IssueRefJson::Jira { id: j.id },
-            None => unreachable!("IssueRef always has a ref variant"),
-        }
-    }
-}
-
-fn issue_ref_json_to_proto(j: IssueRefJson) -> Option<IssueRef> {
-    let r = match j {
-        IssueRefJson::Github {
-            organization,
-            repository,
-            number,
-        } => issue_ref::Ref::Github(GitHubIssueRef {
-            organization,
-            repository,
-            number,
-        }),
-        IssueRefJson::Centy {
-            organization,
-            repository,
-            number,
-        } => issue_ref::Ref::Centy(CentyIssueRef {
-            organization,
-            repository,
-            number,
-        }),
-        IssueRefJson::Jira { id } => issue_ref::Ref::Jira(JiraIssueRef { id }),
-        // Link refs were valid in old queue files but are no longer stored.
-        IssueRefJson::Link { .. } => return None,
-    };
-    Some(IssueRef { r#ref: Some(r) })
-}
 
 #[derive(Serialize, Deserialize)]
 struct TaskJson {
