@@ -82,7 +82,7 @@ export default function QueuePanel() {
             <tbody className="stagger">
               {tasks.map((task) => (
                 <tr key={task.id} className="queue-table__row border-b border-[#1c2736]/50 hover:bg-white/[0.02] transition-colors">
-                  <td className="queue-table__td font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">{formatIssueRef(task.issueRef)}</td>
+                  <td className="queue-table__td font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">{task.issueRef ? formatIssueRef(task.issueRef) : <span className="queue-table__dash opacity-30">—</span>}</td>
                   <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.agent || <span className="queue-table__dash opacity-30">—</span>}</td>
                   <td className="queue-table__td py-2.5 pr-4">
                     <span className={`font-mono text-[10px] tracking-wider px-2 py-0.5 rounded ${STATUS_STYLE[task.status]}`}>{task.status}</span>
