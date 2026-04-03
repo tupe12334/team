@@ -2,9 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+type IssueProvider = "GITHUB" | "JIRA" | "CENTY";
+
+type IssueRef =
+  | { provider: "GITHUB"; ref: "repoIssue"; repoIssue: { organization: string; repository: string; number: string } }
+  | { provider: "JIRA" | "CENTY"; ref: "id"; id: string };
+
 interface Task {
   id: string;
-  issueRef: string;
+  issueRef: IssueRef;
   agent: string;
   status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   priority: number;
@@ -18,6 +24,13 @@ const STATUS_STYLE: Record<Task["status"], string> = {
   COMPLETED: "bg-emerald-950/60 text-emerald-300 border border-emerald-700/50",
   FAILED:    "bg-red-950/60 text-red-300 border border-red-700/50",
 };
+
+function formatIssueRef(ref: IssueRef): string {
+  if (ref.ref === "repoIssue") {
+    return `${ref.repoIssue.organization}/${ref.repoIssue.repository}#${ref.repoIssue.number}`;
+  }
+  return `${ref.provider}:${ref.id}`;
+}
 
 function SectionHeader({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
@@ -33,11 +46,24 @@ function SectionHeader({ children, right }: { children: React.ReactNode; right?:
   );
 }
 
+function buildIssueRef(provider: IssueProvider, org: string, repo: string, number: string, id: string): IssueRef | null {
+  if (provider === "GITHUB") {
+    if (!org.trim() || !repo.trim() || !number.trim()) return null;
+    return { provider: "GITHUB", ref: "repoIssue", repoIssue: { organization: org.trim(), repository: repo.trim(), number: number.trim() } };
+  }
+  if (!id.trim()) return null;
+  return { provider, ref: "id", id: id.trim() };
+}
+
 export default function QueuePanel() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [issueRef, setIssueRef] = useState("");
+  const [provider, setProvider] = useState<IssueProvider>("GITHUB");
+  const [org, setOrg] = useState("");
+  const [repo, setRepo] = useState("");
+  const [number, setNumber] = useState("");
+  const [issueId, setIssueId] = useState("");
   const [agent, setAgent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -64,17 +90,17 @@ export default function QueuePanel() {
 
   const handleEnqueue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!issueRef.trim()) return;
+    const issueRef = buildIssueRef(provider, org, repo, number, issueId);
+    if (!issueRef) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issueRef: issueRef.trim(), agent: agent.trim() || undefined }),
+        body: JSON.stringify({ issueRef, agent: agent.trim() || undefined }),
       });
       if (!res.ok) throw new Error(await res.text());
-      setIssueRef("");
-      setAgent("");
+      setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setAgent("");
       await fetchTasks();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -105,21 +131,61 @@ export default function QueuePanel() {
       <SectionHeader right={live}>Queue</SectionHeader>
 
       {/* ── Add task form ──────────────────────────────────────────────────── */}
-      <form onSubmit={handleEnqueue} className="flex gap-2 mb-5 flex-wrap">
-        <input
-          type="text"
-          value={issueRef}
-          onChange={(e) => setIssueRef(e.target.value)}
-          placeholder="issue-ref"
-          required
-          className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-44"
-        />
+      <form onSubmit={handleEnqueue} className="flex gap-2 mb-5 flex-wrap items-center">
+        <select
+          value={provider}
+          onChange={(e) => setProvider(e.target.value as IssueProvider)}
+          className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] focus:outline-none focus:border-orange-500/60"
+        >
+          <option value="GITHUB">GitHub</option>
+          <option value="JIRA">Jira</option>
+          <option value="CENTY">Centy</option>
+        </select>
+
+        {provider === "GITHUB" ? (
+          <>
+            <input
+              type="text"
+              value={org}
+              onChange={(e) => setOrg(e.target.value)}
+              placeholder="org"
+              required
+              className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-28"
+            />
+            <input
+              type="text"
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
+              placeholder="repo"
+              required
+              className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-28"
+            />
+            <input
+              type="text"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              placeholder="#"
+              required
+              className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-16"
+            />
+          </>
+        ) : (
+          <input
+            type="text"
+            value={issueId}
+            onChange={(e) => setIssueId(e.target.value)}
+            placeholder="issue id"
+            required
+            className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-44"
+          />
+        )}
+
         <input
           type="text"
           value={agent}
           onChange={(e) => setAgent(e.target.value)}
           placeholder="agent (optional)"
-          className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-44"
+          className="font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60 w-36"
         />
         <button
           type="submit"
@@ -161,8 +227,8 @@ export default function QueuePanel() {
             <tbody className="stagger">
               {tasks.map((task) => (
                 <tr key={task.id} className="border-b border-[#1c2736]/50 hover:bg-white/[0.02] transition-colors">
-                  <td className="font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[160px] truncate">
-                    {task.issueRef}
+                  <td className="font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">
+                    {formatIssueRef(task.issueRef)}
                   </td>
                   <td className="font-mono text-xs text-[#6e7681] py-2.5 pr-4">
                     {task.agent || <span className="opacity-30">—</span>}
