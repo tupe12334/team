@@ -53,10 +53,10 @@ fn try_jira(url: &str) -> Option<IssueRef> {
 }
 
 fn try_centy(url: &str) -> Option<IssueRef> {
-    // https://centy.io/{org}/{project}/issues/{number}
+    // https://app.centy.io/{org}/{project}/issues/{id}
     let path = url
-        .strip_prefix("https://centy.io/")
-        .or_else(|| url.strip_prefix("http://centy.io/"))?;
+        .strip_prefix("https://app.centy.io/")
+        .or_else(|| url.strip_prefix("http://app.centy.io/"))?;
     let mut parts = path.splitn(5, '/');
     let org = parts.next().filter(|s| !s.is_empty())?;
     let project = parts.next().filter(|s| !s.is_empty())?;
