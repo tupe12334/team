@@ -6,15 +6,18 @@ mod proto {
     tonic::include_proto!("team");
 }
 
+mod gstack_agents;
 mod issue_ref_json;
 mod link_resolver;
 mod services;
 mod state;
+mod worker_pool;
 
 use proto::{
-    daemon_service_server::DaemonServiceServer, queue_service_server::QueueServiceServer,
-    worker_service_server::WorkerServiceServer,
+    agent_service_server::AgentServiceServer, daemon_service_server::DaemonServiceServer,
+    queue_service_server::QueueServiceServer, worker_service_server::WorkerServiceServer,
 };
+use services::agent::AgentServiceImpl;
 use services::daemon::DaemonServiceImpl;
 use services::queue::QueueServiceImpl;
 use services::worker::WorkerServiceImpl;
@@ -41,9 +44,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let shared_state = Arc::new(Mutex::new(AppState::new(config_path)));
 
+    worker_pool::start(shared_state.clone());
+
     println!("Daemon listening on {addr}");
 
     Server::builder()
+        .add_service(AgentServiceServer::new(AgentServiceImpl::new(
+            shared_state.clone(),
+        )))
         .add_service(DaemonServiceServer::new(DaemonServiceImpl::new(
             shared_state.clone(),
         )))

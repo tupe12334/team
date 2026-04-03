@@ -76,6 +76,7 @@ impl DaemonService for DaemonServiceImpl {
             .unwrap_or_else(|| DaemonConfig {
                 workers_count: 4,
                 log_level: "info".to_string(),
+                enabled_agents: Vec::new(),
             });
         let mut state = self.state.lock().await;
         state.config = new_config.clone();

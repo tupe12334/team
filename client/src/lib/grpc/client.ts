@@ -1,5 +1,6 @@
 /* eslint-disable single-export/single-export */
-import { getDaemonClient, getQueueClient, getWorkerClient, grpcCall } from "./grpc";
+import { getAgentClient, getDaemonClient, getQueueClient, getWorkerClient, grpcCall } from "./grpc";
+import type { AgentInfo, GetAvailableAgentsResponse } from "@/gen/agents";
 import type {
   DaemonInfo,
   DaemonConfig,
@@ -16,6 +17,7 @@ import type {
 } from "@/gen/queue";
 import type { WorkerStatusData, WorkerStatusResponse } from "@/gen/worker";
 
+export type { AgentInfo } from "@/gen/agents";
 export type { DaemonInfo, DaemonConfig } from "@/gen/daemon";
 export type { IssueRef, IssueRefInput, Task } from "@/gen/queue";
 export type { WorkerInfo, WorkerStatusData } from "@/gen/worker";
@@ -87,6 +89,13 @@ export async function daemonUpdateConfig(config: DaemonConfig): Promise<DaemonCo
   const c = getDaemonClient();
   const res = await grpcCall<UpdateConfigResponse>((cb) => c.updateConfig({ config }, cb));
   return unwrap(res);
+}
+
+export async function daemonGetAvailableAgents(): Promise<AgentInfo[]> {
+  const c = getAgentClient();
+  const res = await grpcCall<GetAvailableAgentsResponse>((cb) => c.getAvailableAgents({}, cb));
+  // eslint-disable-next-line no-restricted-syntax
+  return unwrap(res).agents ?? [];
 }
 
 export async function workerGetStatus(): Promise<WorkerStatusData> {

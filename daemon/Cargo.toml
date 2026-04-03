@@ -9,7 +9,7 @@ license = "MIT"
 tonic = "0.13"
 prost = "0.13"
 prost-types = "0.13"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync", "process"] }
 tokio-stream = "0.1"
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }

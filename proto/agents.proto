@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package team;
+
+option go_package = "github.com/tupe12334/team/cli/gen;gen";
+
+import "google/protobuf/empty.proto";
+
+service AgentService {
+  rpc GetAvailableAgents(google.protobuf.Empty) returns (GetAvailableAgentsResponse);
+}
+
+message AgentInfo {
+  string name = 1;
+  string description = 2;
+}
+
+message AgentList {
+  repeated AgentInfo agents = 1;
+}
+
+message GetAvailableAgentsResponse {
+  oneof result {
+    AgentList ok = 1;
+    string error = 2;
+  }
+}

@@ -1,5 +1,6 @@
 /* eslint-disable single-export/single-export */
 import { credentials, ServiceError } from "@grpc/grpc-js";
+import { AgentServiceClient } from "@/gen/agents";
 import { DaemonServiceClient } from "@/gen/daemon";
 import { QueueServiceClient } from "@/gen/queue";
 import { WorkerServiceClient } from "@/gen/worker";
@@ -18,10 +19,13 @@ function getDaemonAddr(): string {
   return `${process.env.DAEMON_HOST ?? "localhost"}:${daemonPort}`;
 }
 
+let _agent: AgentServiceClient | null = null;
 let _daemon: DaemonServiceClient | null = null;
 let _queue: QueueServiceClient | null = null;
 let _worker: WorkerServiceClient | null = null;
 
+export const getAgentClient = () =>
+  (_agent ??= new AgentServiceClient(getDaemonAddr(), credentials.createInsecure()));
 export const getDaemonClient = () =>
   (_daemon ??= new DaemonServiceClient(getDaemonAddr(), credentials.createInsecure()));
 export const getQueueClient = () =>

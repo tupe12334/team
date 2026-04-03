@@ -156,6 +156,14 @@
     "crossterm",
     "prettyplease",
     "dotenvy",
-    "splitn"
+    "splitn",
+    "autoplan",
+    "dogfooding",
+    "gstack",
+    "devex",
+    "Addy",
+    "Osmani",
+    "Vercel",
+    "freetext"
   ]
 }

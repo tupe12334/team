@@ -1,10 +1,12 @@
 /* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import type { IssueRef, IssueRefInput } from "@/gen/queue";
+import type { IssueRefInput } from "@/gen/queue";
+import type { AgentInfo } from "@/lib/grpc/client";
 
 export class ApiError extends Error {}
 export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
+export type { AgentInfo };
 
 export interface Task {
   id: string;
@@ -36,6 +38,7 @@ function buildIssueRef(
 
 export function useQueuePanel() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<IssueProvider>("GITHUB");
@@ -62,6 +65,14 @@ export function useQueuePanel() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    void fetch("/api/agents")
+      .then((r) => r.json())
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      .then((data) => { if (Array.isArray(data)) setAgents(data as AgentInfo[]); })
+      .catch(() => { /* agents are optional; fall back to freetext */ });
   }, []);
 
   useEffect(() => {
@@ -103,7 +114,7 @@ export function useQueuePanel() {
   };
 
   return {
-    tasks, error, loading, provider, setProvider,
+    tasks, agents, error, loading, provider, setProvider,
     org, setOrg, repo, setRepo, number, setNumber,
     issueId, setIssueId, url, setUrl, agent, setAgent,
     priority, setPriority, submitting, deletingId, handleEnqueue, handleDelete,

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 struct ConfigFile {
     workers_count: i32,
     log_level: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    enabled_agents: Vec<String>,
 }
 
 impl Default for ConfigFile {
@@ -13,6 +15,7 @@ impl Default for ConfigFile {
         Self {
             workers_count: 4,
             log_level: "info".to_string(),
+            enabled_agents: Vec::new(),
         }
     }
 }
@@ -22,6 +25,7 @@ impl From<ConfigFile> for DaemonConfig {
         DaemonConfig {
             workers_count: f.workers_count,
             log_level: f.log_level,
+            enabled_agents: f.enabled_agents,
         }
     }
 }
@@ -31,6 +35,7 @@ impl From<&DaemonConfig> for ConfigFile {
         ConfigFile {
             workers_count: c.workers_count,
             log_level: c.log_level.clone(),
+            enabled_agents: c.enabled_agents.clone(),
         }
     }
 }
