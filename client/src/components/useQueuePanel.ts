@@ -12,7 +12,7 @@ export type IssueRef =
 
 export interface Task {
   id: string;
-  issueRef: IssueRef;
+  issueRef: IssueRef | null;
   agent: string;
   status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   priority: number;
