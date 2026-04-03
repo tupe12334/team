@@ -46,7 +46,7 @@ impl QueueService for QueueServiceImpl {
         };
         let mut state = self.state.lock().await;
         state.queue.push(task.clone());
-        state.save_queue().map_err(|e| Status::internal(e))?;
+        state.save_queue().map_err(Status::internal)?;
         Ok(Response::new(EnqueueResponse {
             result: Some(enqueue_response::Result::Task(task)),
         }))
@@ -90,7 +90,7 @@ impl QueueService for QueueServiceImpl {
             nanos: 0,
         });
         let task = task.clone();
-        state.save_queue().map_err(|e| Status::internal(e))?;
+        state.save_queue().map_err(Status::internal)?;
         Ok(Response::new(UpdateTaskResponse {
             result: Some(update_task_response::Result::Task(task)),
         }))
@@ -107,7 +107,7 @@ impl QueueService for QueueServiceImpl {
         if state.queue.len() == before {
             return Err(Status::not_found("task not found"));
         }
-        state.save_queue().map_err(|e| Status::internal(e))?;
+        state.save_queue().map_err(Status::internal)?;
         Ok(Response::new(RemoveTaskResponse {
             result: Some(remove_task_response::Result::Ok(())),
         }))
