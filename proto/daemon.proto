@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package team;
+
+import "google/protobuf/empty.proto";
+
+service DaemonService {
+  rpc GetInfo(google.protobuf.Empty) returns (DaemonInfo);
+  rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc ReloadConfig(google.protobuf.Empty) returns (ReloadConfigResponse);
+}
+
+message DaemonInfo {
+  string version = 1;
+  int64 uptime_seconds = 2;
+  string config_path = 3;
+  int32 workers_count = 4;
+}
+
+message ReloadConfigResponse {
+  oneof result {
+    google.protobuf.Empty ok = 1;
+    string error = 2;
+  }
+}

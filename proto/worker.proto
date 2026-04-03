@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package team;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service WorkerService {
+  rpc GetWorkerStatus(google.protobuf.Empty) returns (WorkerStatusResponse);
+}
+
+enum WorkerStatus {
+  IDLE = 0;
+  BUSY = 1;
+}
+
+message WorkerInfo {
+  string worker_id = 1;
+  WorkerStatus status = 2;
+  string current_task_id = 3;
+  string current_agent = 4;
+  google.protobuf.Timestamp task_started_at = 5;
+}
+
+message WorkerStatusResponse {
+  int32 total = 1;
+  int32 busy = 2;
+  int32 idle = 3;
+  repeated WorkerInfo workers = 4;
+}

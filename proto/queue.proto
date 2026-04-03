@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package team;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service QueueService {
+  rpc Enqueue(EnqueueRequest) returns (Task);
+  rpc ListQueue(ListQueueRequest) returns (ListQueueResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (Task);
+  rpc RemoveTask(RemoveTaskRequest) returns (google.protobuf.Empty);
+}
+
+enum TaskStatus {
+  QUEUED = 0;
+  RUNNING = 1;
+  COMPLETED = 2;
+  FAILED = 3;
+}
+
+message Task {
+  string id = 1;
+  string issue_ref = 2;
+  string agent = 3;
+  TaskStatus status = 4;
+  int32 priority = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message EnqueueRequest {
+  string issue_ref = 1;
+  optional string agent = 2;
+}
+
+message ListQueueRequest {}
+
+message ListQueueResponse {
+  repeated Task tasks = 1;
+}
+
+message UpdateTaskRequest {
+  string task_id = 1;
+  optional string agent = 2;
+  optional int32 priority = 3;
+}
+
+message RemoveTaskRequest {
+  string task_id = 1;
+}
