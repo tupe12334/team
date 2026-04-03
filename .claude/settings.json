@@ -70,7 +70,14 @@
       "Bash(git restore:*)",
       "Bash(node:*)",
       "Bash(pnpm lint:*)",
-      "Bash(npm info:*)"
+      "Bash(npm info:*)",
+      "Bash(git reset:*)",
+      "Bash(git pull:*)",
+      "Bash(git rm:*)",
+      "Bash(pnpm build:*)",
+      "Bash(find:*)",
+      "Bash(npx eslint:*)",
+      "Bash(xargs cat:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }

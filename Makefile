@@ -12,9 +12,10 @@ generate: ## Regenerate all code from proto files
 	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/daemon.cobra.pb.go
 
 .PHONY: build
-build: ## Build the CLI binary, daemon, and client
+build: ## Build the CLI binary, daemon, client, and TUI
 	cd cli && GOWORK=off go build -o ../bin/team .
 	cd daemon && cargo build
+	cd tui && cargo build
 	cd client && pnpm build
 
 .PHONY: install
@@ -25,6 +26,10 @@ install: ## Install the CLI to GOBIN
 mcp: ## Build the MCP server binary
 	cd mcp && go mod tidy && go build -o ../bin/mcp-server .
 
+.PHONY: tui
+tui: ## Run the TUI
+	cd tui && cargo run
+
 .PHONY: run
 run: ## Run the daemon and client concurrently
 	cd daemon && cargo run & DAEMON_ADDR="[::1]:$(DAEMON_PORT)" pnpm --prefix client dev; kill %1
@@ -33,4 +38,5 @@ run: ## Run the daemon and client concurrently
 lint: ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
 	cd cli && GOWORK=off go vet ./...
 	cd daemon && cargo clippy -- -D warnings
+	cd tui && cargo clippy -- -D warnings
 	cd client && pnpm lint
