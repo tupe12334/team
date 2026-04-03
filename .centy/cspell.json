@@ -25,6 +25,6 @@
     ".centy-manifest.json",
     "node_modules",
     "daemon/target/**",
-    "pnpm-lock.yaml"
+    "**/pnpm-lock.yaml"
   ]
 }
