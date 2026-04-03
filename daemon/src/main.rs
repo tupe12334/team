@@ -20,7 +20,7 @@ use state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
+    let port = std::env::var("DAEMON_PORT").expect("DAEMON_PORT must be set");
     let addr = format!("[::1]:{port}").parse()?;
 
     let shared_state = Arc::new(Mutex::new(AppState::new(

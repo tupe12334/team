@@ -1,6 +1,9 @@
 GOBIN := $(shell go env GOPATH)/bin
 PATH  := $(GOBIN):$(PATH)
 
+-include .env
+export
+
 .PHONY: generate
 generate: ## Regenerate all code from proto files
 	PATH=$(PATH) buf generate
@@ -24,7 +27,7 @@ mcp: ## Build the MCP server binary
 
 .PHONY: run
 run: ## Run the daemon and client concurrently
-	cd daemon && cargo run & cd client && pnpm dev; kill %1
+	cd daemon && cargo run & DAEMON_ADDR="[::1]:$(DAEMON_PORT)" pnpm --prefix client dev; kill %1
 
 .PHONY: lint
 lint: ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
