@@ -1,5 +1,5 @@
 use crate::proto::{
-    issue_ref, CentyIssueRef, DaemonConfig, GitHubIssueRef, IssueRef, JiraIssueRef, LinkRef, Task,
+    issue_ref, CentyIssueRef, DaemonConfig, GitHubIssueRef, IssueRef, JiraIssueRef, Task,
     WorkerInfo,
 };
 use serde::{Deserialize, Serialize};
@@ -72,40 +72,36 @@ impl From<IssueRef> for IssueRefJson {
                 number: c.number,
             },
             Some(issue_ref::Ref::Jira(j)) => IssueRefJson::Jira { id: j.id },
-            Some(issue_ref::Ref::Link(l)) => IssueRefJson::Link { url: l.url },
-            None => IssueRefJson::Link {
-                url: String::new(),
-            },
+            None => unreachable!("IssueRef always has a ref variant"),
         }
     }
 }
 
-impl From<IssueRefJson> for IssueRef {
-    fn from(j: IssueRefJson) -> Self {
-        let r = match j {
-            IssueRefJson::Github {
-                organization,
-                repository,
-                number,
-            } => issue_ref::Ref::Github(GitHubIssueRef {
-                organization,
-                repository,
-                number,
-            }),
-            IssueRefJson::Centy {
-                organization,
-                repository,
-                number,
-            } => issue_ref::Ref::Centy(CentyIssueRef {
-                organization,
-                repository,
-                number,
-            }),
-            IssueRefJson::Jira { id } => issue_ref::Ref::Jira(JiraIssueRef { id }),
-            IssueRefJson::Link { url } => issue_ref::Ref::Link(LinkRef { url }),
-        };
-        IssueRef { r#ref: Some(r) }
-    }
+fn issue_ref_json_to_proto(j: IssueRefJson) -> Option<IssueRef> {
+    let r = match j {
+        IssueRefJson::Github {
+            organization,
+            repository,
+            number,
+        } => issue_ref::Ref::Github(GitHubIssueRef {
+            organization,
+            repository,
+            number,
+        }),
+        IssueRefJson::Centy {
+            organization,
+            repository,
+            number,
+        } => issue_ref::Ref::Centy(CentyIssueRef {
+            organization,
+            repository,
+            number,
+        }),
+        IssueRefJson::Jira { id } => issue_ref::Ref::Jira(JiraIssueRef { id }),
+        // Link refs were valid in old queue files but are no longer stored.
+        IssueRefJson::Link { .. } => return None,
+    };
+    Some(IssueRef { r#ref: Some(r) })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -137,7 +133,7 @@ impl From<TaskJson> for Task {
     fn from(j: TaskJson) -> Self {
         Task {
             id: j.id,
-            issue_ref: j.issue_ref.map(IssueRef::from),
+            issue_ref: j.issue_ref.and_then(issue_ref_json_to_proto),
             agent: j.agent,
             status: j.status,
             priority: j.priority,

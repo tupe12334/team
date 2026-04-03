@@ -5,9 +5,10 @@ use uuid::Uuid;
 
 use crate::proto::queue_service_server::QueueService;
 use crate::proto::{
-    enqueue_response, list_queue_response, remove_task_response, update_task_response,
-    EnqueueRequest, EnqueueResponse, ListQueueRequest, ListQueueResponse, RemoveTaskRequest,
-    RemoveTaskResponse, Task, TaskList, TaskStatus, UpdateTaskRequest, UpdateTaskResponse,
+    enqueue_response, issue_ref, issue_ref_input, list_queue_response, remove_task_response,
+    update_task_response, EnqueueRequest, EnqueueResponse, IssueRef, ListQueueRequest,
+    ListQueueResponse, RemoveTaskRequest, RemoveTaskResponse, Task, TaskList, TaskStatus,
+    UpdateTaskRequest, UpdateTaskResponse,
 };
 use crate::state::AppState;
 
@@ -35,9 +36,29 @@ impl QueueService for QueueServiceImpl {
                 .as_secs() as i64,
             nanos: 0,
         };
+        let issue_ref = match req.issue_ref.and_then(|r| r.r#ref) {
+            Some(issue_ref_input::Ref::Github(g)) => {
+                Some(IssueRef { r#ref: Some(issue_ref::Ref::Github(g)) })
+            }
+            Some(issue_ref_input::Ref::Centy(c)) => {
+                Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(c)) })
+            }
+            Some(issue_ref_input::Ref::Jira(j)) => {
+                Some(IssueRef { r#ref: Some(issue_ref::Ref::Jira(j)) })
+            }
+            Some(issue_ref_input::Ref::Link(_)) => {
+                return Ok(Response::new(EnqueueResponse {
+                    result: Some(enqueue_response::Result::Error(
+                        "link refs must be resolved to a concrete issue before enqueueing"
+                            .to_string(),
+                    )),
+                }));
+            }
+            None => None,
+        };
         let task = Task {
             id: Uuid::new_v4().to_string(),
-            issue_ref: req.issue_ref,
+            issue_ref,
             agent: req.agent.unwrap_or_default(),
             status: TaskStatus::Queued as i32,
             priority: 0,
