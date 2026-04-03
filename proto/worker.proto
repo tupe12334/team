@@ -2,11 +2,10 @@ syntax = "proto3";
 
 package team;
 
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 service WorkerService {
-  rpc GetWorkerStatus(google.protobuf.Empty) returns (WorkerStatusResponse);
+  rpc GetWorkerStatus(WorkerStatusRequest) returns (WorkerStatusResponse);
 }
 
 enum WorkerStatus {
@@ -22,9 +21,18 @@ message WorkerInfo {
   google.protobuf.Timestamp task_started_at = 5;
 }
 
-message WorkerStatusResponse {
+message WorkerStatusRequest {}
+
+message WorkerStatusData {
   int32 total = 1;
   int32 busy = 2;
   int32 idle = 3;
   repeated WorkerInfo workers = 4;
+}
+
+message WorkerStatusResponse {
+  oneof result {
+    WorkerStatusData ok = 1;
+    string error = 2;
+  }
 }

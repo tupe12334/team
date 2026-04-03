@@ -6,10 +6,10 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 service QueueService {
-  rpc Enqueue(EnqueueRequest) returns (Task);
+  rpc Enqueue(EnqueueRequest) returns (EnqueueResponse);
   rpc ListQueue(ListQueueRequest) returns (ListQueueResponse);
-  rpc UpdateTask(UpdateTaskRequest) returns (Task);
-  rpc RemoveTask(RemoveTaskRequest) returns (google.protobuf.Empty);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc RemoveTask(RemoveTaskRequest) returns (RemoveTaskResponse);
 }
 
 enum TaskStatus {
@@ -34,10 +34,24 @@ message EnqueueRequest {
   optional string agent = 2;
 }
 
+message EnqueueResponse {
+  oneof result {
+    Task task = 1;
+    string error = 2;
+  }
+}
+
 message ListQueueRequest {}
 
-message ListQueueResponse {
+message TaskList {
   repeated Task tasks = 1;
+}
+
+message ListQueueResponse {
+  oneof result {
+    TaskList ok = 1;
+    string error = 2;
+  }
 }
 
 message UpdateTaskRequest {
@@ -46,6 +60,20 @@ message UpdateTaskRequest {
   optional int32 priority = 3;
 }
 
+message UpdateTaskResponse {
+  oneof result {
+    Task task = 1;
+    string error = 2;
+  }
+}
+
 message RemoveTaskRequest {
   string task_id = 1;
+}
+
+message RemoveTaskResponse {
+  oneof result {
+    google.protobuf.Empty ok = 1;
+    string error = 2;
+  }
 }
