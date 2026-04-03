@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queueList, queueEnqueue } from "@/lib/grpc/client";
+import { queueList, queueEnqueue, IssueRef } from "@/lib/grpc/client";
 
 export async function GET() {
   try {
@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { issueRef, agent } = body as { issueRef: string; agent?: string };
+    const { issueRef, agent } = body as { issueRef: IssueRef; agent?: string };
     if (!issueRef) {
       return NextResponse.json({ error: "issueRef is required" }, { status: 400 });
     }

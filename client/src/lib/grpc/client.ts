@@ -67,9 +67,21 @@ export interface DaemonInfo {
   workersCount: number;
 }
 
+export type IssueProvider = "GITHUB" | "JIRA" | "CENTY";
+
+export interface RepoIssueRef {
+  organization: string;
+  repository: string;
+  number: string;
+}
+
+export type IssueRef =
+  | { provider: IssueProvider; ref: "repoIssue"; repoIssue: RepoIssueRef }
+  | { provider: IssueProvider; ref: "id"; id: string };
+
 export interface Task {
   id: string;
-  issueRef: string;
+  issueRef: IssueRef;
   agent: string;
   status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   priority: number;
@@ -132,11 +144,11 @@ export async function queueList(): Promise<Task[]> {
 }
 
 export async function queueEnqueue(
-  issueRef: string,
+  issueRef: IssueRef,
   agent?: string
 ): Promise<Task> {
   const res = await grpcCall<
-    { issueRef: string; agent?: string },
+    { issueRef: IssueRef; agent?: string },
     OneofResponse<Task>
   >(getQueueClient(), "enqueue", { issueRef, agent });
   return unwrap(res);
