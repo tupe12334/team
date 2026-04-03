@@ -6,6 +6,7 @@ mod proto {
     tonic::include_proto!("team");
 }
 
+mod link_resolver;
 mod services;
 mod state;
 

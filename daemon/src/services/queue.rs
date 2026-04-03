@@ -3,6 +3,7 @@ use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
+use crate::link_resolver;
 use crate::proto::queue_service_server::QueueService;
 use crate::proto::{
     enqueue_response, issue_ref, issue_ref_input, list_queue_response, remove_task_response,
@@ -46,13 +47,15 @@ impl QueueService for QueueServiceImpl {
             Some(issue_ref_input::Ref::Jira(j)) => {
                 Some(IssueRef { r#ref: Some(issue_ref::Ref::Jira(j)) })
             }
-            Some(issue_ref_input::Ref::Link(_)) => {
-                return Ok(Response::new(EnqueueResponse {
-                    result: Some(enqueue_response::Result::Error(
-                        "link refs must be resolved to a concrete issue before enqueueing"
-                            .to_string(),
-                    )),
-                }));
+            Some(issue_ref_input::Ref::Link(l)) => {
+                match link_resolver::resolve(&l.url) {
+                    Ok(resolved) => Some(resolved),
+                    Err(msg) => {
+                        return Ok(Response::new(EnqueueResponse {
+                            result: Some(enqueue_response::Result::Error(msg)),
+                        }));
+                    }
+                }
             }
             None => {
                 return Ok(Response::new(EnqueueResponse {
