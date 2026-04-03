@@ -77,7 +77,8 @@
       "Bash(pnpm build:*)",
       "Bash(find:*)",
       "Bash(npx eslint:*)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(cargo clippy:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }

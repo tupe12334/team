@@ -1,9 +1,12 @@
+/* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useState } from "react";
 
 export interface DaemonConfig {
   workersCount: number;
   logLevel: string;
 }
+
+export class ApiError extends Error {}
 
 export function useConfigPanel() {
   const [config, setConfig] = useState<DaemonConfig | null>(null);
@@ -16,7 +19,8 @@ export function useConfigPanel() {
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/daemon/config");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new ApiError(await res.text());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const data: DaemonConfig = await res.json();
       setConfig(data);
       setDraft(data);
@@ -28,7 +32,7 @@ export function useConfigPanel() {
     }
   }, []);
 
-  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+  useEffect(() => { void fetchConfig(); }, [fetchConfig]);
 
   const isDirty = draft && config && (
     draft.workersCount !== config.workersCount ||
@@ -44,13 +48,14 @@ export function useConfigPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new ApiError(await res.text());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const updated: DaemonConfig = await res.json();
       setConfig(updated);
       setDraft(updated);
       setError(null);
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => { setSaved(false); }, 2000);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
