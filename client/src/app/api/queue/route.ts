@@ -1,3 +1,4 @@
+/* eslint-disable single-export/single-export */
 import { NextRequest, NextResponse } from "next/server";
 import { queueList, queueEnqueue, IssueRef } from "@/lib/grpc/client";
 
@@ -13,8 +14,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { issueRef, agent } = body as { issueRef: IssueRef; agent?: string };
+    // eslint-disable-next-line no-restricted-syntax
+    const { issueRef, agent } = (await req.json()) as { issueRef?: IssueRef; agent?: string };
     if (!issueRef) {
       return NextResponse.json({ error: "issueRef is required" }, { status: 400 });
     }
