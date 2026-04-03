@@ -3,6 +3,8 @@ import DaemonPanel from "@/components/DaemonPanel";
 import QueuePanel from "@/components/QueuePanel";
 import WorkersPanel from "@/components/WorkersPanel";
 
+export const dynamic = "force-static";
+
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
