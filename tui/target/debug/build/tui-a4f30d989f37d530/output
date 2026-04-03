@@ -1,4 +1,0 @@
-cargo:rerun-if-changed=../proto/daemon.proto
-cargo:rerun-if-changed=../proto/queue.proto
-cargo:rerun-if-changed=../proto/worker.proto
-cargo:rerun-if-changed=../proto
