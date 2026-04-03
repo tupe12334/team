@@ -14,6 +14,26 @@ service QueueService {
   rpc RemoveTask(RemoveTaskRequest) returns (RemoveTaskResponse);
 }
 
+enum IssueProvider {
+  GITHUB = 0;
+  JIRA = 1;
+  CENTY = 2;
+}
+
+message RepoIssueRef {
+  string organization = 1;
+  string repository = 2;
+  string number = 3;
+}
+
+message IssueRef {
+  IssueProvider provider = 1;
+  oneof ref {
+    RepoIssueRef repo_issue = 2;
+    string id = 3;
+  }
+}
+
 enum TaskStatus {
   QUEUED = 0;
   RUNNING = 1;
@@ -23,7 +43,7 @@ enum TaskStatus {
 
 message Task {
   string id = 1;
-  string issue_ref = 2;
+  IssueRef issue_ref = 2;
   string agent = 3;
   TaskStatus status = 4;
   int32 priority = 5;
@@ -32,7 +52,7 @@ message Task {
 }
 
 message EnqueueRequest {
-  string issue_ref = 1;
+  IssueRef issue_ref = 1;
   optional string agent = 2;
 }
 
