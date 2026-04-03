@@ -13,8 +13,9 @@ const LOAD_OPTIONS: protoLoader.Options = {
 };
 
 function makeClient(protoFile: string, serviceName: string): grpc.Client {
-  const daemonAddr = process.env.DAEMON_ADDR;
-  if (!daemonAddr) throw new Error("DAEMON_ADDR must be set");
+  const daemonPort = process.env.DAEMON_PORT;
+  if (!daemonPort) throw new Error("DAEMON_PORT must be set in .env");
+  const daemonAddr = `localhost:${daemonPort}`;
   const packageDef = protoLoader.loadSync(
     path.join(PROTO_DIR, protoFile),
     LOAD_OPTIONS

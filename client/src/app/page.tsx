@@ -29,7 +29,7 @@ export default function Home() {
 
       <footer className="border-t border-[#1c2736] py-4">
         <p className="text-center font-mono text-xs text-[#6e7681]">
-          gRPC → [::1]:50051
+          gRPC → localhost:{process.env.DAEMON_PORT}
         </p>
       </footer>
     </div>
