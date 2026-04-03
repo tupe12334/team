@@ -3,7 +3,10 @@ use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 
 use crate::proto::worker_service_server::WorkerService;
-use crate::proto::{WorkerStatus, WorkerStatusResponse};
+use crate::proto::{
+    worker_status_response, WorkerStatus, WorkerStatusData, WorkerStatusRequest,
+    WorkerStatusResponse,
+};
 use crate::state::AppState;
 
 pub struct WorkerServiceImpl {
@@ -20,7 +23,7 @@ impl WorkerServiceImpl {
 impl WorkerService for WorkerServiceImpl {
     async fn get_worker_status(
         &self,
-        _request: Request<()>,
+        _request: Request<WorkerStatusRequest>,
     ) -> Result<Response<WorkerStatusResponse>, Status> {
         let state = self.state.lock().await;
         let workers = state.workers.clone();
@@ -30,10 +33,12 @@ impl WorkerService for WorkerServiceImpl {
             .count() as i32;
         let total = workers.len() as i32;
         Ok(Response::new(WorkerStatusResponse {
-            total,
-            busy,
-            idle: total - busy,
-            workers,
+            result: Some(worker_status_response::Result::Ok(WorkerStatusData {
+                total,
+                busy,
+                idle: total - busy,
+                workers,
+            })),
         }))
     }
 }

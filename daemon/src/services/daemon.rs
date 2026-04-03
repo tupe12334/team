@@ -4,7 +4,10 @@ use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 
 use crate::proto::daemon_service_server::DaemonService;
-use crate::proto::{DaemonInfo, ReloadConfigResponse};
+use crate::proto::{
+    get_info_response, reload_config_response, shutdown_response, DaemonInfo, GetInfoResponse,
+    ReloadConfigResponse, ShutdownResponse,
+};
 use crate::state::AppState;
 
 pub struct DaemonServiceImpl {
@@ -26,7 +29,7 @@ impl DaemonService for DaemonServiceImpl {
     async fn get_info(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<DaemonInfo>, Status> {
+    ) -> Result<Response<GetInfoResponse>, Status> {
         let state = self.state.lock().await;
         let info = DaemonInfo {
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -34,28 +37,30 @@ impl DaemonService for DaemonServiceImpl {
             config_path: state.config_path.clone(),
             workers_count: state.workers.len() as i32,
         };
-        Ok(Response::new(info))
+        Ok(Response::new(GetInfoResponse {
+            result: Some(get_info_response::Result::Ok(info)),
+        }))
     }
 
     async fn shutdown(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<()>, Status> {
+    ) -> Result<Response<ShutdownResponse>, Status> {
         tokio::spawn(async {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             std::process::exit(0);
         });
-        Ok(Response::new(()))
+        Ok(Response::new(ShutdownResponse {
+            result: Some(shutdown_response::Result::Ok(())),
+        }))
     }
 
     async fn reload_config(
         &self,
         _request: Request<()>,
     ) -> Result<Response<ReloadConfigResponse>, Status> {
-        // Placeholder: real reload logic goes here
         Ok(Response::new(ReloadConfigResponse {
-            success: true,
-            error: String::new(),
+            result: Some(reload_config_response::Result::Ok(())),
         }))
     }
 }

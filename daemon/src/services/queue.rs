@@ -5,8 +5,9 @@ use uuid::Uuid;
 
 use crate::proto::queue_service_server::QueueService;
 use crate::proto::{
-    EnqueueRequest, ListQueueRequest, ListQueueResponse, RemoveTaskRequest, Task, TaskStatus,
-    UpdateTaskRequest,
+    enqueue_response, list_queue_response, remove_task_response, update_task_response,
+    EnqueueRequest, EnqueueResponse, ListQueueRequest, ListQueueResponse, RemoveTaskRequest,
+    RemoveTaskResponse, Task, TaskList, TaskStatus, UpdateTaskRequest, UpdateTaskResponse,
 };
 use crate::state::AppState;
 
@@ -25,7 +26,7 @@ impl QueueService for QueueServiceImpl {
     async fn enqueue(
         &self,
         request: Request<EnqueueRequest>,
-    ) -> Result<Response<Task>, Status> {
+    ) -> Result<Response<EnqueueResponse>, Status> {
         let req = request.into_inner();
         let now = prost_types::Timestamp {
             seconds: std::time::SystemTime::now()
@@ -45,7 +46,9 @@ impl QueueService for QueueServiceImpl {
         };
         let mut state = self.state.lock().await;
         state.queue.push(task.clone());
-        Ok(Response::new(task))
+        Ok(Response::new(EnqueueResponse {
+            result: Some(enqueue_response::Result::Task(task)),
+        }))
     }
 
     async fn list_queue(
@@ -54,14 +57,16 @@ impl QueueService for QueueServiceImpl {
     ) -> Result<Response<ListQueueResponse>, Status> {
         let state = self.state.lock().await;
         Ok(Response::new(ListQueueResponse {
-            tasks: state.queue.clone(),
+            result: Some(list_queue_response::Result::Ok(TaskList {
+                tasks: state.queue.clone(),
+            })),
         }))
     }
 
     async fn update_task(
         &self,
         request: Request<UpdateTaskRequest>,
-    ) -> Result<Response<Task>, Status> {
+    ) -> Result<Response<UpdateTaskResponse>, Status> {
         let req = request.into_inner();
         let mut state = self.state.lock().await;
         let task = state
@@ -83,13 +88,15 @@ impl QueueService for QueueServiceImpl {
                 .as_secs() as i64,
             nanos: 0,
         });
-        Ok(Response::new(task.clone()))
+        Ok(Response::new(UpdateTaskResponse {
+            result: Some(update_task_response::Result::Task(task.clone())),
+        }))
     }
 
     async fn remove_task(
         &self,
         request: Request<RemoveTaskRequest>,
-    ) -> Result<Response<()>, Status> {
+    ) -> Result<Response<RemoveTaskResponse>, Status> {
         let req = request.into_inner();
         let mut state = self.state.lock().await;
         let before = state.queue.len();
@@ -97,6 +104,8 @@ impl QueueService for QueueServiceImpl {
         if state.queue.len() == before {
             return Err(Status::not_found("task not found"));
         }
-        Ok(Response::new(()))
+        Ok(Response::new(RemoveTaskResponse {
+            result: Some(remove_task_response::Result::Ok(())),
+        }))
     }
 }
