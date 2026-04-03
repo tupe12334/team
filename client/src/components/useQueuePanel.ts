@@ -1,0 +1,104 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+
+export type IssueProvider = "GITHUB" | "JIRA" | "CENTY";
+
+export type IssueRef =
+  | { provider: "GITHUB"; ref: "repoIssue"; repoIssue: { organization: string; repository: string; number: string } }
+  | { provider: "JIRA" | "CENTY"; ref: "id"; id: string };
+
+export interface Task {
+  id: string;
+  issueRef: IssueRef;
+  agent: string;
+  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  priority: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export function buildIssueRef(
+  provider: IssueProvider,
+  org: string,
+  repo: string,
+  number: string,
+  id: string
+): IssueRef | null {
+  if (provider === "GITHUB") {
+    if (!org.trim() || !repo.trim() || !number.trim()) return null;
+    return { provider: "GITHUB", ref: "repoIssue", repoIssue: { organization: org.trim(), repository: repo.trim(), number: number.trim() } };
+  }
+  if (!id.trim()) return null;
+  return { provider, ref: "id", id: id.trim() };
+}
+
+export function useQueuePanel() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [provider, setProvider] = useState<IssueProvider>("GITHUB");
+  const [org, setOrg] = useState("");
+  const [repo, setRepo] = useState("");
+  const [number, setNumber] = useState("");
+  const [issueId, setIssueId] = useState("");
+  const [agent, setAgent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch("/api/queue");
+      if (!res.ok) throw new Error(await res.text());
+      setTasks(await res.json());
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
+    intervalRef.current = setInterval(fetchTasks, 5000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchTasks]);
+
+  const handleEnqueue = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const issueRef = buildIssueRef(provider, org, repo, number, issueId);
+    if (!issueRef) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issueRef, agent: agent.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setAgent("");
+      await fetchTasks();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await fetch(`/api/queue/${id}`, { method: "DELETE" });
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return {
+    tasks, error, loading, provider, setProvider,
+    org, setOrg, repo, setRepo, number, setNumber,
+    issueId, setIssueId, agent, setAgent,
+    submitting, deletingId, handleEnqueue, handleDelete,
+  };
+}

@@ -1,81 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-
-interface DaemonConfig {
-  workersCount: number;
-  logLevel: string;
-}
+import SectionHeader from "@/components/SectionHeader";
+import { useConfigPanel } from "@/components/useConfigPanel";
 
 const LOG_LEVELS = ["error", "warn", "info", "debug", "trace"];
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-0.5 h-5 bg-orange-500 rounded-full shrink-0" />
-      <h2 className="font-sans font-bold text-xs tracking-widest uppercase text-[#c9d1d9]">
-        {children}
-      </h2>
-    </div>
-  );
-}
-
 export default function ConfigPanel() {
-  const [config, setConfig] = useState<DaemonConfig | null>(null);
-  const [draft, setDraft] = useState<DaemonConfig | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const fetchConfig = useCallback(async () => {
-    try {
-      const res = await fetch("/api/daemon/config");
-      if (!res.ok) throw new Error(await res.text());
-      const data: DaemonConfig = await res.json();
-      setConfig(data);
-      setDraft(data);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchConfig(); }, [fetchConfig]);
-
-  const isDirty = draft && config && (
-    draft.workersCount !== config.workersCount ||
-    draft.logLevel !== config.logLevel
-  );
-
-  const handleSave = async () => {
-    if (!draft) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/daemon/config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const updated: DaemonConfig = await res.json();
-      setConfig(updated);
-      setDraft(updated);
-      setError(null);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReset = () => {
-    if (config) setDraft(config);
-  };
+  const { draft, setDraft, error, loading, saving, saved, isDirty, handleSave, handleReset } =
+    useConfigPanel();
 
   return (
     <section className="border border-[#1c2736] rounded-lg bg-[#0d1117] p-6 animate-fade-up">
@@ -105,9 +37,7 @@ export default function ConfigPanel() {
                 type="number"
                 min={1}
                 value={draft.workersCount}
-                onChange={(e) =>
-                  setDraft({ ...draft, workersCount: Math.max(1, parseInt(e.target.value) || 1) })
-                }
+                onChange={(e) => { setDraft({ ...draft, workersCount: Math.max(1, parseInt(e.target.value) || 1) }); }}
                 className="font-mono text-sm bg-[#0d1117] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] focus:outline-none focus:border-orange-500/60 w-full"
               />
             </div>
@@ -118,13 +48,11 @@ export default function ConfigPanel() {
               </label>
               <select
                 value={draft.logLevel}
-                onChange={(e) => setDraft({ ...draft, logLevel: e.target.value })}
+                onChange={(e) => { setDraft({ ...draft, logLevel: e.target.value }); }}
                 className="font-mono text-sm bg-[#0d1117] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] focus:outline-none focus:border-orange-500/60 w-full"
               >
                 {LOG_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
+                  <option key={level} value={level}>{level}</option>
                 ))}
               </select>
             </div>

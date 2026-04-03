@@ -1,13 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-
-interface DaemonInfo {
-  version: string;
-  uptimeSeconds: string;
-  configPath: string;
-  workersCount: number;
-}
+import SectionHeader from "@/components/SectionHeader";
+import { useDaemonPanel } from "@/components/useDaemonPanel";
 
 function formatUptime(raw: string): string {
   const s = parseInt(raw, 10) || 0;
@@ -15,21 +9,10 @@ function formatUptime(raw: string): string {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   const parts: string[] = [];
-  if (h) parts.push(`${h}h`);
-  if (m) parts.push(`${m}m`);
-  parts.push(`${sec}s`);
+  if (h) parts.push(`${String(h)}h`);
+  if (m) parts.push(`${String(m)}m`);
+  parts.push(`${String(sec)}s`);
   return parts.join(" ");
-}
-
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-0.5 h-5 bg-orange-500 rounded-full shrink-0" />
-      <h2 className="font-sans font-bold text-xs tracking-widest uppercase text-[#c9d1d9]">
-        {children}
-      </h2>
-    </div>
-  );
 }
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
@@ -44,46 +27,8 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function DaemonPanel() {
-  const [info, setInfo] = useState<DaemonInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [reloading, setReloading] = useState(false);
-  const [shuttingDown, setShuttingDown] = useState(false);
-
-  const fetchInfo = useCallback(async () => {
-    try {
-      const res = await fetch("/api/daemon/info");
-      if (!res.ok) throw new Error(await res.text());
-      setInfo(await res.json());
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchInfo(); }, [fetchInfo]);
-
-  const handleReload = async () => {
-    setReloading(true);
-    try {
-      await fetch("/api/daemon/reload", { method: "POST" });
-      await fetchInfo();
-    } finally {
-      setReloading(false);
-    }
-  };
-
-  const handleShutdown = async () => {
-    if (!confirm("Shut down the daemon? It will need to be restarted manually.")) return;
-    setShuttingDown(true);
-    try {
-      await fetch("/api/daemon/shutdown", { method: "POST" });
-    } finally {
-      setShuttingDown(false);
-    }
-  };
+  const { info, error, loading, reloading, shuttingDown, handleReload, handleShutdown } =
+    useDaemonPanel();
 
   return (
     <section className="border border-[#1c2736] rounded-lg bg-[#0d1117] p-6 animate-fade-up">

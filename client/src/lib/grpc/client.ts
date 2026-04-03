@@ -1,124 +1,27 @@
-import * as grpc from "@grpc/grpc-js";
-import * as protoLoader from "@grpc/proto-loader";
-import path from "path";
+import { getDaemonClient, getQueueClient, getWorkerClient, grpcCall } from "./grpc";
+import {
+  DaemonInfo,
+  DaemonConfig,
+  IssueRef,
+  OneofResponse,
+  Task,
+  WorkerStatusData,
+  unwrap,
+} from "./types";
 
-const PROTO_DIR =
-  process.env.PROTO_DIR ?? path.resolve(process.cwd(), "..", "proto");
-const LOAD_OPTIONS: protoLoader.Options = {
-  keepCase: false,
-  longs: String,
-  enums: String,
-  defaults: true,
-  oneofs: true,
-};
-
-function makeClient(protoFile: string, serviceName: string): grpc.Client {
-  const daemonPort = process.env.DAEMON_PORT;
-  if (!daemonPort) throw new Error("DAEMON_PORT must be set in .env");
-  const daemonAddr = `localhost:${daemonPort}`;
-  const packageDef = protoLoader.loadSync(
-    path.join(PROTO_DIR, protoFile),
-    LOAD_OPTIONS
-  );
-  const pkg = grpc.loadPackageDefinition(packageDef) as Record<
-    string,
-    Record<string, grpc.ServiceClientConstructor>
-  >;
-  const ServiceCtor = pkg["team"][serviceName];
-  return new ServiceCtor(daemonAddr, grpc.credentials.createInsecure());
-}
-
-// Singletons — reuse the same channel across requests
-let _daemon: grpc.Client | null = null;
-let _queue: grpc.Client | null = null;
-let _worker: grpc.Client | null = null;
-
-export const getDaemonClient = () =>
-  (_daemon ??= makeClient("daemon.proto", "DaemonService"));
-export const getQueueClient = () =>
-  (_queue ??= makeClient("queue.proto", "QueueService"));
-export const getWorkerClient = () =>
-  (_worker ??= makeClient("worker.proto", "WorkerService"));
-
-/** Promisified gRPC unary call. */
-export function grpcCall<TReq extends object, TRes>(
-  client: grpc.Client,
-  method: string,
-  request: TReq
-): Promise<TRes> {
-  return new Promise((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (client as any)[method](
-      request,
-      (err: grpc.ServiceError | null, response: TRes) => {
-        if (err) reject(err);
-        else resolve(response);
-      }
-    );
-  });
-}
-
-// ── Response types (mirrors proto oneofs) ────────────────────────────────────
-
-export interface DaemonInfo {
-  version: string;
-  uptimeSeconds: string;
-  configPath: string;
-  workersCount: number;
-}
-
-export type IssueProvider = "GITHUB" | "JIRA" | "CENTY";
-
-export interface RepoIssueRef {
-  organization: string;
-  repository: string;
-  number: string;
-}
-
-export type IssueRef =
-  | { provider: IssueProvider; ref: "repoIssue"; repoIssue: RepoIssueRef }
-  | { provider: IssueProvider; ref: "id"; id: string };
-
-export interface Task {
-  id: string;
-  issueRef: IssueRef;
-  agent: string;
-  status: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-  priority: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
-
-export interface WorkerInfo {
-  workerId: string;
-  status: "IDLE" | "BUSY";
-  currentTaskId: string;
-  currentAgent: string;
-  taskStartedAt: string | null;
-}
-
-export interface WorkerStatusData {
-  total: number;
-  busy: number;
-  idle: number;
-  workers: WorkerInfo[];
-}
-
-// ── Typed helpers that unwrap the oneof result ────────────────────────────────
-
-type OneofResponse<T> =
-  | { result: "ok"; ok: T }
-  | { result: "error"; error: string }
-  | { result: "task"; task: T };
-
-function unwrap<T>(response: OneofResponse<T>): T {
-  if (response.result === "error") throw new Error(response.error as string);
-  if (response.result === "task") return response.task;
-  return response.ok;
-}
+export type {
+  DaemonInfo,
+  DaemonConfig,
+  IssueRef,
+  IssueProvider,
+  RepoIssueRef,
+  Task,
+  WorkerInfo,
+  WorkerStatusData,
+} from "./types";
 
 export async function daemonGetInfo(): Promise<DaemonInfo> {
-  const res = await grpcCall<object, OneofResponse<DaemonInfo>>(
+  const res = await grpcCall<OneofResponse<DaemonInfo>>(
     getDaemonClient(),
     "getInfo",
     {}
@@ -135,7 +38,7 @@ export async function daemonReloadConfig(): Promise<void> {
 }
 
 export async function queueList(): Promise<Task[]> {
-  const res = await grpcCall<object, OneofResponse<{ tasks: Task[] }>>(
+  const res = await grpcCall<OneofResponse<{ tasks: Task[] }>>(
     getQueueClient(),
     "listQueue",
     {}
@@ -147,10 +50,11 @@ export async function queueEnqueue(
   issueRef: IssueRef,
   agent?: string
 ): Promise<Task> {
-  const res = await grpcCall<
-    { issueRef: IssueRef; agent?: string },
-    OneofResponse<Task>
-  >(getQueueClient(), "enqueue", { issueRef, agent });
+  const res = await grpcCall<OneofResponse<Task>>(
+    getQueueClient(),
+    "enqueue",
+    { issueRef, agent }
+  );
   return unwrap(res);
 }
 
@@ -158,7 +62,7 @@ export async function queueUpdateTask(
   taskId: string,
   update: { agent?: string; priority?: number }
 ): Promise<Task> {
-  const res = await grpcCall<object, OneofResponse<Task>>(
+  const res = await grpcCall<OneofResponse<Task>>(
     getQueueClient(),
     "updateTask",
     { taskId, ...update }
@@ -170,13 +74,8 @@ export async function queueRemoveTask(taskId: string): Promise<void> {
   await grpcCall(getQueueClient(), "removeTask", { taskId });
 }
 
-export interface DaemonConfig {
-  workersCount: number;
-  logLevel: string;
-}
-
 export async function daemonGetConfig(): Promise<DaemonConfig> {
-  const res = await grpcCall<object, OneofResponse<DaemonConfig>>(
+  const res = await grpcCall<OneofResponse<DaemonConfig>>(
     getDaemonClient(),
     "getConfig",
     {}
@@ -184,8 +83,10 @@ export async function daemonGetConfig(): Promise<DaemonConfig> {
   return unwrap(res);
 }
 
-export async function daemonUpdateConfig(config: DaemonConfig): Promise<DaemonConfig> {
-  const res = await grpcCall<{ config: DaemonConfig }, OneofResponse<DaemonConfig>>(
+export async function daemonUpdateConfig(
+  config: DaemonConfig
+): Promise<DaemonConfig> {
+  const res = await grpcCall<OneofResponse<DaemonConfig>>(
     getDaemonClient(),
     "updateConfig",
     { config }
@@ -194,7 +95,7 @@ export async function daemonUpdateConfig(config: DaemonConfig): Promise<DaemonCo
 }
 
 export async function workerGetStatus(): Promise<WorkerStatusData> {
-  const res = await grpcCall<object, OneofResponse<WorkerStatusData>>(
+  const res = await grpcCall<OneofResponse<WorkerStatusData>>(
     getWorkerClient(),
     "getWorkerStatus",
     {}
