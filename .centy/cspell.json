@@ -1,6 +1,12 @@
 {
-  "version": "0.2",
+  "ignorePaths": [
+    "**/pnpm-lock.yaml",
+    ".centy-manifest.json",
+    "daemon/target/**",
+    "node_modules"
+  ],
   "language": "en",
+  "version": "0.2",
   "words": [
     "allowedStates",
     "centy",
@@ -9,22 +15,16 @@
     "codegen",
     "createdAt",
     "displayNumber",
+    "priorityColors",
+    "priorityLevels",
     "prost",
     "protoc",
     "reprioritize",
-    "priorityColors",
-    "priorityLevels",
     "schemaVersion",
     "stateColors",
     "teamd",
     "thiserror",
     "tlsv",
     "updatedAt"
-  ],
-  "ignorePaths": [
-    ".centy-manifest.json",
-    "node_modules",
-    "daemon/target/**",
-    "**/pnpm-lock.yaml"
   ]
 }

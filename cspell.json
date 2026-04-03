@@ -150,6 +150,7 @@
     "yallist",
     "yocto",
     "serde",
-    "winnow"
+    "winnow",
+    "bufbuild"
   ]
 }
