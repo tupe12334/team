@@ -20,8 +20,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn connect(addr: String) -> Result<Self> {
-        let channel = Channel::from_shared(addr)?.connect().await?;
+    pub fn new(addr: String) -> Result<Self> {
+        let channel = Channel::from_shared(addr)?.connect_lazy();
         Ok(Self {
             daemon: DaemonServiceClient::new(channel.clone()),
             queue: QueueServiceClient::new(channel.clone()),

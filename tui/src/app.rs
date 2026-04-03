@@ -38,8 +38,8 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(addr: String) -> Result<Self> {
-        let client = Client::connect(addr).await?;
+    pub fn new(addr: String) -> Result<Self> {
+        let client = Client::new(addr)?;
         Ok(Self {
             client,
             active_tab: Tab::Queue,

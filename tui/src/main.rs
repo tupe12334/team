@@ -12,6 +12,6 @@ async fn main() -> Result<()> {
     let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
     let addr = format!("http://[::1]:{port}");
 
-    let mut app = App::new(addr).await?;
+    let mut app = App::new(addr)?;
     app.run().await
 }
