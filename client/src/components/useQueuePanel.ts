@@ -1,12 +1,11 @@
 /* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import type { IssueRefInput } from "@/gen/queue";
+import type { IssueRef, IssueRefInput } from "@/gen/queue";
 import type { AgentInfo } from "@/lib/grpc/client";
 
 export class ApiError extends Error {}
 export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
-export type { AgentInfo };
 
 export interface Task {
   id: string;
@@ -34,6 +33,13 @@ function buildIssueRef(
   // LINK
   if (!url.trim()) return null;
   return { link: { url: url.trim() } };
+}
+
+async function fetchAgents(): Promise<AgentInfo[]> {
+  const res = await fetch("/api/agents");
+  if (!res.ok) return [];
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return res.json();
 }
 
 export function useQueuePanel() {
@@ -68,14 +74,7 @@ export function useQueuePanel() {
   }, []);
 
   useEffect(() => {
-    void fetch("/api/agents")
-      .then((r) => r.json())
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      .then((data) => { if (Array.isArray(data)) setAgents(data as AgentInfo[]); })
-      .catch(() => { /* agents are optional; fall back to freetext */ });
-  }, []);
-
-  useEffect(() => {
+    void fetchAgents().then(setAgents).catch(() => { /* optional */ });
     void fetchTasks();
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     intervalRef.current = setInterval(fetchTasks, 5000);

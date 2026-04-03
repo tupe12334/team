@@ -46,12 +46,11 @@ function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
       ) : (
         <input type="text" value={issueId} onChange={(e) => { setIssueId(e.target.value); }} placeholder="issue id" required className={`${inputCls} w-44`} />
       )}
-      {/* eslint-disable-next-line no-restricted-syntax */}
       <select value={agent} onChange={(e) => { setAgent(e.target.value); }}
         className={`queue-panel__agent ${selectCls} w-48`} title={agents.find((a) => a.name === agent)?.description}>
-        <option value="">agent (none)</option>
+        <option className="queue-panel__option" value="">agent (none)</option>
         {agents.map((a) => (
-          <option key={a.name} value={a.name} title={a.description}>{a.name}</option>
+          <option className="queue-panel__option" key={a.name} value={a.name} title={a.description}>{a.name}</option>
         ))}
       </select>
       <input type="number" value={priority || ""} onChange={(e) => { setPriority(Number(e.target.value) || 0); }} placeholder="priority" className={`${inputCls} w-24`} min={0} />
@@ -86,7 +85,7 @@ export default function QueuePanel() {
             return (
               <tr key={task.id} className="queue-table__row border-b border-[#1c2736]/50 hover:bg-white/[0.02] transition-colors">
                 <td className="queue-table__td font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">{task.issueRef ? formatIssueRef(task.issueRef) : dash}</td>
-                <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.agent ? task.agent : dash}</td>
+                <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.agent ?? dash}</td>
                 <td className="queue-table__td py-2.5 pr-4"><span className={`font-mono text-[10px] tracking-wider px-2 py-0.5 rounded ${s.style}`}>{s.name}</span></td>
                 <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.priority}</td>
                 <td className="queue-table__td py-2.5"><button onClick={() => { void handleDelete(task.id); }} disabled={deletingId === task.id} className="queue-table__delete font-mono text-[10px] text-[#6e7681] hover:text-red-400 transition-colors disabled:opacity-40">{deletingId === task.id ? "…" : "✕"}</button></td>

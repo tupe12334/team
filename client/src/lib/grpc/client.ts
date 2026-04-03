@@ -94,8 +94,7 @@ export async function daemonUpdateConfig(config: DaemonConfig): Promise<DaemonCo
 export async function daemonGetAvailableAgents(): Promise<AgentInfo[]> {
   const c = getAgentClient();
   const res = await grpcCall<GetAvailableAgentsResponse>((cb) => c.getAvailableAgents({}, cb));
-  // eslint-disable-next-line no-restricted-syntax
-  return unwrap(res).agents ?? [];
+  return unwrap(res).agents;
 }
 
 export async function workerGetStatus(): Promise<WorkerStatusData> {
