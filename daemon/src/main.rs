@@ -20,7 +20,8 @@ use state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
+    let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
+    let addr = format!("[::1]:{port}").parse()?;
 
     let shared_state = Arc::new(Mutex::new(AppState::new(
         std::env::var("CONFIG_PATH").unwrap_or_else(|_| "/etc/team/config.toml".to_string()),
