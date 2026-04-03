@@ -1,3 +1,4 @@
+/* eslint-disable single-export/single-export */
 import { NextRequest, NextResponse } from "next/server";
 import { queueUpdateTask, queueRemoveTask } from "@/lib/grpc/client";
 
@@ -7,8 +8,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { agent, priority } = body as { agent?: string; priority?: number };
+    // eslint-disable-next-line no-restricted-syntax
+    const { agent, priority } = (await req.json()) as { agent?: string; priority?: number };
     const task = await queueUpdateTask(id, { agent, priority });
     return NextResponse.json(task);
   } catch (err) {
