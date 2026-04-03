@@ -64,7 +64,7 @@ export function grpcCall<TRes>(
 ): Promise<TRes> {
   return new Promise((resolve, reject) => {
     // eslint-disable-next-line security/detect-object-injection
-    const fn = (client as Record<string, GrpcMethod>)[method];
+    const fn = (client as unknown as Record<string, GrpcMethod>)[method];
     fn(request, (err, response) => {
       if (err) reject(err);
       else resolve(response as TRes);
