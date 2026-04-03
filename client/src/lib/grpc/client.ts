@@ -4,8 +4,8 @@ import path from "path";
 
 const PROTO_DIR =
   process.env.PROTO_DIR ?? path.resolve(process.cwd(), "..", "proto");
-const DAEMON_ADDR = process.env.DAEMON_ADDR;
-if (!DAEMON_ADDR) throw new Error("DAEMON_ADDR must be set");
+if (!process.env.DAEMON_ADDR) throw new Error("DAEMON_ADDR must be set");
+const DAEMON_ADDR: string = process.env.DAEMON_ADDR;
 
 const LOAD_OPTIONS: protoLoader.Options = {
   keepCase: false,
