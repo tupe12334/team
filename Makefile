@@ -9,7 +9,7 @@ generate: ## Regenerate all code from proto files
 	export PATH="$$PATH:$(CURDIR)/node_modules/.bin" && buf generate
 	# Workaround for protoc-gen-cobra bug: &Empty{} → &emptypb.Empty{}
 	# https://github.com/NathanBaulch/protoc-gen-cobra/issues (unqualified Empty for google.protobuf.Empty)
-	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/daemon.cobra.pb.go
+	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/agents.cobra.pb.go cli/gen/daemon.cobra.pb.go
 
 .PHONY: build
 build: ## Build the CLI binary, daemon, client, and TUI
@@ -36,7 +36,7 @@ run: ## Run the daemon and client concurrently
 
 .PHONY: lint
 lint: ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
-	cd cli && GOWORK=off go vet ./...
+	cd cli && GOWORK=off go vet $(shell cd cli && GOWORK=off go list ./... | grep -v /gen)
 	cd daemon && cargo clippy -- -D warnings
 	cd tui && cargo clippy -- -D warnings
 	cd client && pnpm lint
