@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "mcp__centy__centy_v1_CentyDaemon_Init",
+      "mcp__centy__centy_v1_CentyDaemon_GetProjectInfo",
+      "mcp__centy__centy_v1_CentyDaemon_DeleteOrgIssue",
+      "mcp__centy__centy_v1_CentyDaemon_ListItemTypes",
+      "mcp__centy__centy_v1_CentyDaemon_CreateItem",
+      "Bash(pnpm --version)",
+      "mcp__centy__centy_v1_CentyDaemon_ListItems",
+      "mcp__centy__centy_v1_CentyDaemon_ListOrgIssues",
+      "Bash(git revert:*)",
+      "mcp__centy__centy_v1_CentyDaemon_UpdateItem",
+      "Bash(corepack enable:*)",
+      "Bash(corepack install:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(cargo --version)",
+      "WebSearch",
+      "WebFetch(domain:grpc.io)",
+      "WebFetch(domain:google.aip.dev)",
+      "Bash(cargo init:*)",
+      "Bash(protoc --version)",
+      "WebFetch(domain:blog.postman.com)",
+      "WebFetch(domain:john-millikin.com)",
+      "WebFetch(domain:www.baeldung.com)",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:oneuptime.com)",
+      "Bash(cargo build:*)"
+    ],
+    "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
+  }
+}

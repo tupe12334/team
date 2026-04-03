@@ -5,15 +5,26 @@
     "allowedStates",
     "centy",
     "centyVersion",
+    "clippy",
+    "codegen",
     "createdAt",
     "displayNumber",
+    "prost",
+    "protoc",
+    "reprioritize",
     "priorityColors",
     "priorityLevels",
     "schemaVersion",
     "stateColors",
+    "teamd",
+    "thiserror",
+    "tlsv",
     "updatedAt"
   ],
   "ignorePaths": [
-    ".centy-manifest.json"
+    ".centy-manifest.json",
+    "node_modules",
+    "daemon/target/**",
+    "pnpm-lock.yaml"
   ]
 }
