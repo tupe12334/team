@@ -37,7 +37,9 @@
       "Bash(go mod:*)",
       "Bash(npm install:*)",
       "Bash(pnpm install:*)",
-      "Bash(go install:*)"
+      "Bash(go install:*)",
+      "Bash(cargo run:*)",
+      "Bash(pnpm start:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
