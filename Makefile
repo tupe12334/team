@@ -10,7 +10,7 @@ generate: ## Regenerate all code from proto files
 
 .PHONY: build
 build: ## Build the CLI binary, daemon, and client
-	cd cli && go build -o ../bin/team .
+	cd cli && GOWORK=off go build -o ../bin/team .
 	cd daemon && cargo build
 	cd client && pnpm build
 

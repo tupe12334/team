@@ -64,7 +64,10 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "Bash(go get:*)",
-      "Bash(rustc:*)"
+      "Bash(rustc:*)",
+      "Bash(make generate:*)",
+      "Bash(buf generate:*)",
+      "Bash(git restore:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
