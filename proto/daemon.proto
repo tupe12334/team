@@ -9,7 +9,14 @@ import "google/protobuf/empty.proto";
 service DaemonService {
   rpc GetInfo(google.protobuf.Empty) returns (GetInfoResponse);
   rpc Shutdown(google.protobuf.Empty) returns (ShutdownResponse);
+  rpc GetConfig(google.protobuf.Empty) returns (GetConfigResponse);
+  rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse);
   rpc ReloadConfig(google.protobuf.Empty) returns (ReloadConfigResponse);
+}
+
+message DaemonConfig {
+  int32 workers_count = 1;
+  string log_level = 2;
 }
 
 message DaemonInfo {
@@ -29,6 +36,24 @@ message GetInfoResponse {
 message ShutdownResponse {
   oneof result {
     google.protobuf.Empty ok = 1;
+    string error = 2;
+  }
+}
+
+message GetConfigResponse {
+  oneof result {
+    DaemonConfig ok = 1;
+    string error = 2;
+  }
+}
+
+message UpdateConfigRequest {
+  DaemonConfig config = 1;
+}
+
+message UpdateConfigResponse {
+  oneof result {
+    DaemonConfig ok = 1;
     string error = 2;
   }
 }
