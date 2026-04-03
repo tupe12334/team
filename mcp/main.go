@@ -25,14 +25,13 @@ func main() {
 	}
 	defer conn.Close()
 
-	s := mcpserver.NewMCPServer("team-daemon", "0.1.0")
-	srv := mark3labs.NewMCPServer(s)
+	rawServer, srv := mark3labs.NewServer("team-daemon", "0.1.0")
 
 	genmcp.ForwardToDaemonServiceClient(srv, gen.NewDaemonServiceClient(conn))
 	genmcp.ForwardToQueueServiceClient(srv, gen.NewQueueServiceClient(conn))
 	genmcp.ForwardToWorkerServiceClient(srv, gen.NewWorkerServiceClient(conn))
 
-	if err := mcpserver.ServeStdio(s); err != nil {
+	if err := mcpserver.ServeStdio(rawServer); err != nil {
 		log.Fatalf("serve: %v", err)
 	}
 }
