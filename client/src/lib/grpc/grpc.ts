@@ -1,3 +1,4 @@
+/* eslint-disable single-export/single-export */
 import { credentials, ServiceError } from "@grpc/grpc-js";
 import { DaemonServiceClient } from "@/gen/daemon";
 import { QueueServiceClient } from "@/gen/queue";
@@ -10,8 +11,10 @@ export class DaemonPortMissingError extends Error {
 }
 
 function getDaemonAddr(): string {
+  // eslint-disable-next-line no-restricted-syntax
   const daemonPort = process.env.DAEMON_PORT;
   if (!daemonPort) throw new DaemonPortMissingError();
+  // eslint-disable-next-line no-restricted-syntax, default/no-localhost
   return `${process.env.DAEMON_HOST ?? "localhost"}:${daemonPort}`;
 }
 
