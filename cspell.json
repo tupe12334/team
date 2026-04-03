@@ -154,6 +154,7 @@
     "bufbuild",
     "ratatui",
     "crossterm",
-    "prettyplease"
+    "prettyplease",
+    "dotenvy"
   ]
 }

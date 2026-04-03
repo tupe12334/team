@@ -1,5 +1,8 @@
+/* eslint-disable single-export/single-export */
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
 
+export class ApiError extends Error {}
 export type IssueProvider = "GITHUB" | "JIRA" | "CENTY" | "LINK";
 
 export type IssueRef =
@@ -18,12 +21,8 @@ export interface Task {
 }
 
 export function buildIssueRef(
-  provider: IssueProvider,
-  org: string,
-  repo: string,
-  number: string,
-  id: string,
-  url: string
+  provider: IssueProvider, org: string, repo: string,
+  number: string, id: string, url: string
 ): IssueRef | null {
   if (provider === "GITHUB") {
     if (!org.trim() || !repo.trim() || !number.trim()) return null;
@@ -55,7 +54,8 @@ export function useQueuePanel() {
   const fetchTasks = useCallback(async () => {
     try {
       const res = await fetch("/api/queue");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new ApiError(await res.text());
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setTasks(await res.json());
       setError(null);
     } catch (e) {
@@ -66,12 +66,13 @@ export function useQueuePanel() {
   }, []);
 
   useEffect(() => {
-    fetchTasks();
+    void fetchTasks();
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     intervalRef.current = setInterval(fetchTasks, 5000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchTasks]);
 
-  const handleEnqueue = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEnqueue = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const issueRef = buildIssueRef(provider, org, repo, number, issueId, url);
     if (!issueRef) return;
@@ -82,7 +83,7 @@ export function useQueuePanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ issueRef, agent: agent.trim() || undefined }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new ApiError(await res.text());
       setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setUrl(""); setAgent("");
       await fetchTasks();
     } catch (e) {

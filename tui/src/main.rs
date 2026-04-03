@@ -9,6 +9,9 @@ mod ui;
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
+    // Load .env from the project root (one level up from tui/)
+    let _ = dotenvy::from_path("../.env");
+
     let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
     let addr = format!("http://[::1]:{port}");
 
