@@ -84,7 +84,9 @@
       "mcp__centy__centy_v1_CentyDaemon_ListProjects",
       "mcp__centy__centy_v1_CentyDaemon_GetOrgIssue",
       "Bash(go version:*)",
-      "Bash(buf --version)"
+      "Bash(buf --version)",
+      "WebFetch(domain:crates.io)",
+      "WebFetch(domain:docs.rs)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
