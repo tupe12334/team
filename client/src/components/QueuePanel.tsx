@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import SectionHeader from "@/components/SectionHeader";
 import type { IssueRef } from "@/gen/queue";
 import { useQueuePanel } from "@/components/useQueuePanel";
@@ -17,7 +18,7 @@ function formatIssueRef(ref: IssueRef): string {
   return ref.jira ? `JIRA:${ref.jira.id}` : "unknown";
 }
 
-function agentOrDash(agent: string | undefined): string | JSX.Element {
+function agentOrDash(agent: string | undefined): React.ReactNode {
   if (agent) return agent;
   return dash;
 }
