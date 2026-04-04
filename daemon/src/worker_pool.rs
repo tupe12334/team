@@ -2,7 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use crate::proto::{TaskStatus, WorkerInfo, WorkerStatus};
+use crate::issue_ref_json::IssueRefJson;
+use crate::proto::{IssueRef, TaskStatus, WorkerInfo, WorkerStatus};
 use crate::state::AppState;
 
 pub fn start(state: Arc<Mutex<AppState>>) {
@@ -11,12 +12,10 @@ pub fn start(state: Arc<Mutex<AppState>>) {
 
 async fn dispatch_loop(state: Arc<Mutex<AppState>>) {
     loop {
-        let task = pick_next_task(&state).await;
-        match task {
-            Some((task_id, agent)) => {
+        match pick_next_task(&state).await {
+            Some((task_id, issue_ref, worker_id)) => {
                 let state_clone = state.clone();
-                let worker_id = uuid::Uuid::new_v4().to_string();
-                tokio::spawn(run_task(state_clone, task_id, agent, worker_id));
+                tokio::spawn(run_task(state_clone, task_id, issue_ref, worker_id));
             }
             None => {
                 tokio::time::sleep(Duration::from_secs(2)).await;
@@ -26,8 +25,10 @@ async fn dispatch_loop(state: Arc<Mutex<AppState>>) {
 }
 
 /// Finds the highest-priority QUEUED task that fits within the worker concurrency limit,
-/// atomically marks it RUNNING, registers the worker, and returns (task_id, agent).
-async fn pick_next_task(state: &Arc<Mutex<AppState>>) -> Option<(String, Option<String>)> {
+/// atomically marks it RUNNING, registers the worker, and returns (task_id, issue_ref, worker_id).
+async fn pick_next_task(
+    state: &Arc<Mutex<AppState>>,
+) -> Option<(String, Option<IssueRef>, String)> {
     let mut s = state.lock().await;
     let running = s.workers.len() as i32;
     if running >= s.config.workers_count {
@@ -46,6 +47,7 @@ async fn pick_next_task(state: &Arc<Mutex<AppState>>) -> Option<(String, Option<
     let task = &mut s.queue[idx];
     let task_id = task.id.clone();
     let agent = task.agent.clone();
+    let issue_ref = task.issue_ref.clone();
     task.status = TaskStatus::Running as i32;
     task.updated_at = Some(prost_types::Timestamp {
         seconds: now_seconds(),
@@ -57,7 +59,7 @@ async fn pick_next_task(state: &Arc<Mutex<AppState>>) -> Option<(String, Option<
         worker_id: worker_id.clone(),
         status: WorkerStatus::Busy as i32,
         current_task_id: task_id.clone(),
-        current_agent: agent.clone().unwrap_or_default(),
+        current_agent: agent.unwrap_or_default(),
         task_started_at: Some(prost_types::Timestamp {
             seconds: now_seconds(),
             nanos: 0,
@@ -65,41 +67,33 @@ async fn pick_next_task(state: &Arc<Mutex<AppState>>) -> Option<(String, Option<
     });
 
     let _ = s.save_queue();
-    Some((task_id, agent))
+    Some((task_id, issue_ref, worker_id))
 }
 
 async fn run_task(
     state: Arc<Mutex<AppState>>,
     task_id: String,
-    agent: Option<String>,
+    issue_ref: Option<IssueRef>,
     worker_id: String,
 ) {
-    let success = execute_agent(&agent).await;
+    let success = execute_agent(issue_ref).await;
     finish_task(&state, &task_id, &worker_id, success).await;
 }
 
-/// Spawns the appropriate gstack agent for the task.
-/// Command: `claude --print -p "/<agent>"` (non-interactive).
-/// Falls back to a no-op if claude is not available.
-async fn execute_agent(agent: &Option<String>) -> bool {
-    let skill = match agent {
-        Some(a) if !a.is_empty() => format!("/{a}"),
-        _ => "/review".to_string(),
-    };
+/// Delegates execution to worktree-io: `worktree <issue-ref> --headless`.
+/// Returns false if no issue_ref is present or the process exits non-zero.
+async fn execute_agent(issue_ref: Option<IssueRef>) -> bool {
+    let Some(r) = issue_ref else { return false };
+    let ref_str = IssueRefJson::from(r).to_string();
 
-    let result = tokio::process::Command::new("claude")
-        .arg("--print")
-        .arg("-p")
-        .arg(&skill)
-        .output()
-        .await;
-
-    match result {
-        Ok(output) => output.status.success(),
-        Err(_) => {
-            // claude not in PATH — treat as success stub so the queue drains
-            true
-        }
+    match tokio::process::Command::new("worktree")
+        .arg(&ref_str)
+        .arg("--headless")
+        .status()
+        .await
+    {
+        Ok(status) => status.success(),
+        Err(_) => false,
     }
 }
 
