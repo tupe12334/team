@@ -1,0 +1,30 @@
+flowchart TD
+    subgraph Sources["Enqueue Sources"]
+        A[Centy: Status → In Queue]
+        B[Manual]
+        C[CLI]
+        D[Web App]
+        E[MCP]
+    end
+
+    Q[(Queue)]
+
+    A --> Q
+    B --> Q
+    C --> Q
+    D --> Q
+    E --> Q
+
+    subgraph Daemon["Daemon"]
+        QM[Queue Manager]
+        DI[Discovery]
+        AS[Assignment]
+    end
+
+    Q --> QM
+    QM --> DI
+    DI --> AS
+
+    WI[worktree-io]
+
+    AS --> WI
