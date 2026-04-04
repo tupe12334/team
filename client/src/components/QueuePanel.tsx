@@ -17,6 +17,11 @@ function formatIssueRef(ref: IssueRef): string {
   return ref.jira ? `JIRA:${ref.jira.id}` : "unknown";
 }
 
+function agentOrDash(agent: string | undefined): string | JSX.Element {
+  if (agent) return agent;
+  return dash;
+}
+
 const dash = <span className="queue-table__dash opacity-30">—</span>;
 const live = <span className="queue-panel__live flex items-center gap-1.5 font-mono text-[10px] text-[#6e7681]"><span className="animate-pulse-dot w-1.5 h-1.5 rounded-full bg-orange-500/70" /> live · 5s</span>;
 const inputCls = "queue-panel__input font-mono text-xs bg-[#07090c] border border-[#1c2736] rounded px-3 py-2 text-[#c9d1d9] placeholder-[#6e7681] focus:outline-none focus:border-orange-500/60";
@@ -85,7 +90,7 @@ export default function QueuePanel() {
             return (
               <tr key={task.id} className="queue-table__row border-b border-[#1c2736]/50 hover:bg-white/[0.02] transition-colors">
                 <td className="queue-table__td font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">{task.issueRef ? formatIssueRef(task.issueRef) : dash}</td>
-                <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{Boolean(task.agent) ? task.agent : dash}</td>
+                <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{agentOrDash(task.agent)}</td>
                 <td className="queue-table__td py-2.5 pr-4"><span className={`font-mono text-[10px] tracking-wider px-2 py-0.5 rounded ${s.style}`}>{s.name}</span></td>
                 <td className="queue-table__td font-mono text-xs text-[#6e7681] py-2.5 pr-4">{task.priority}</td>
                 <td className="queue-table__td py-2.5"><button onClick={() => { void handleDelete(task.id); }} disabled={deletingId === task.id} className="queue-table__delete font-mono text-[10px] text-[#6e7681] hover:text-red-400 transition-colors disabled:opacity-40">{deletingId === task.id ? "…" : "✕"}</button></td>
