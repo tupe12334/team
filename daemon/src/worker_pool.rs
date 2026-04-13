@@ -2,7 +2,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use crate::issue_ref_json::IssueRefJson;
 use crate::proto::{IssueRef, TaskStatus, WorkerInfo, WorkerStatus};
 use crate::state::AppState;
 
@@ -80,15 +79,33 @@ async fn run_task(
     finish_task(&state, &task_id, &worker_id, success).await;
 }
 
-/// Delegates execution to worktree-io: `worktree <issue-ref> --headless`.
-/// Returns false if no issue_ref is present or the process exits non-zero.
+/// Converts an internal IssueRef to the ref format accepted by `worktree open`.
+///
+/// Supported mappings:
+/// - GitHub `org/repo#42`  — `worktree open` accepts `owner/repo#number`
+/// - Centy  `centy:<id>`   — `worktree open` accepts `centy:<number>`
+/// - Jira   — not directly supported by `worktree open`; returns None
+fn to_worktree_ref(r: IssueRef) -> Option<String> {
+    match r.r#ref? {
+        crate::proto::issue_ref::Ref::Github(g) => {
+            Some(format!("{}/{}#{}", g.organization, g.repository, g.number))
+        }
+        crate::proto::issue_ref::Ref::Centy(c) => {
+            Some(format!("centy:{}", c.number))
+        }
+        crate::proto::issue_ref::Ref::Jira(_) => None,
+    }
+}
+
+/// Delegates execution to worktree-io: `worktree open <ref>`.
+/// Returns false if the issue ref cannot be converted, or the process exits non-zero.
 async fn execute_agent(issue_ref: Option<IssueRef>) -> bool {
     let Some(r) = issue_ref else { return false };
-    let ref_str = IssueRefJson::from(r).to_string();
+    let Some(ref_str) = to_worktree_ref(r) else { return false };
 
     match tokio::process::Command::new("worktree")
+        .arg("open")
         .arg(&ref_str)
-        .arg("--headless")
         .status()
         .await
     {

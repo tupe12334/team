@@ -1,5 +1,5 @@
 use crate::issue_ref_json::{issue_ref_json_to_proto, IssueRefJson};
-use crate::proto::{DaemonConfig, Task, WorkerInfo};
+use crate::proto::{DaemonConfig, Task, TaskStatus, WorkerInfo};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -137,6 +137,14 @@ impl AppState {
                 .unwrap_or_default()
                 .into_iter()
                 .map(Task::from)
+                .map(|mut t| {
+                    // Reset tasks that were RUNNING when the daemon last exited —
+                    // those workers are gone, so re-queue them to be dispatched again.
+                    if t.status == TaskStatus::Running as i32 {
+                        t.status = TaskStatus::Queued as i32;
+                    }
+                    t
+                })
                 .collect(),
             Err(_) => Vec::new(),
         }

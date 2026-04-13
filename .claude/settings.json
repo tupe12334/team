@@ -87,7 +87,10 @@
       "Bash(buf --version)",
       "WebFetch(domain:crates.io)",
       "WebFetch(domain:docs.rs)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(wc:*)",
+      "Skill(ralph-loop:ralph-loop)",
+      "Bash(go build:*)"
     ],
     "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
   }
