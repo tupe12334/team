@@ -7,10 +7,13 @@
 ## Features
 
 - **Issue tracker integration** — enqueue tasks from GitHub, Centy.io, Jira, or any URL
-- **Configurable worker pool** — set how many agents run in parallel
+- **Centy auto-polling** — the daemon watches Centy for issues with status "in queue" and enqueues them automatically every 30 s; once a task finishes it stays in the queue for 7 days to prevent re-dispatch
+- **35 gstack agents** — each task can be assigned a named agent skill (review, qa, ship, plan-eng-review, …) passed as `TEAM_AGENT` to `worktree-io` hooks
+- **Configurable worker pool** — set how many agents run in parallel; optional `enabled_agents` list restricts the dropdown to a subset
 - **worktree-io delegation** — each task is executed via `worktree open <issue-ref>`; all process, worktree, and hook logic lives in `worktree-io`
 - **gRPC API** — all queue and worker management is done via gRPC
 - **Multiple interfaces** — CLI, web UI, TUI, and MCP server
+- **Queue pruning** — completed and failed tasks older than 7 days are automatically removed on each queue save
 
 ## Requirements
 
@@ -120,19 +123,20 @@ The daemon address defaults to `[::1]:DAEMON_PORT`. Override with `DAEMON_ADDR` 
 ## How it works
 
 ```
-Sources (GitHub / Centy.io / CLI / Web / MCP)
-        │
-        ▼
-   Task Queue  ◄──── user manages (add / remove / reprioritize)
-        │
-        ▼
-  Queue Manager  ──── discovery + assignment
-        │
-        ▼
-  worktree-io  ──── `worktree open <issue-ref>`
+Sources
+  Centy auto-poll ──► (issues with status "in queue", every 30 s)
+  Manual / CLI / Web / MCP ──────────────────────────────────────►  Task Queue
+                                                                         │
+                                                                         ▼
+                                                                   Queue Manager
+                                                               (discovery + assignment)
+                                                                         │
+                                                                         ▼
+                                                               worktree open <ref>
+                                                         (TEAM_AGENT env → gstack skill)
 ```
 
-`team` is responsible only for queue state and worker concurrency. When a worker slot opens, it runs `worktree open <issue-ref>` and waits for the exit code. All worktree creation, branch management, hook execution, and agent invocation are handled by `worktree-io`.
+`team` is responsible only for queue state and worker concurrency. When a worker slot opens it calls `worktree open <issue-ref>`, optionally setting `TEAM_AGENT` so the `post:open` hook runs the right gstack skill (e.g. `claude --dangerously-skip-permissions /review`). All worktree creation, branch management, and agent invocation are handled by `worktree-io`.
 
 ## License
 

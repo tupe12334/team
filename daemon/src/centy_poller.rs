@@ -39,17 +39,17 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
     let mut enqueued = 0u32;
 
     for issue in issues {
-        // Skip if the same centy issue is already QUEUED or RUNNING.
-        let active = s.queue.iter().any(|t| {
-            if let Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(ref c)) }) = t.issue_ref {
-                c.number == issue.number
-                    && (t.status == TaskStatus::Queued as i32
-                        || t.status == TaskStatus::Running as i32)
-            } else {
-                false
-            }
+        // Skip if the centy issue is already in the queue in ANY state.
+        // COMPLETED/FAILED tasks are retained for 7 days (see save_queue pruning),
+        // which prevents re-dispatch of recently finished work.  Once pruned, a
+        // still-"in queue" centy issue will be picked up again on the next poll.
+        let already_present = s.queue.iter().any(|t| {
+            matches!(
+                &t.issue_ref,
+                Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(c)) }) if c.number == issue.number
+            )
         });
-        if active {
+        if already_present {
             continue;
         }
 

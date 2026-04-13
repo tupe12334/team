@@ -1,6 +1,6 @@
 # daemon
 
-The `teamd` daemon — a gRPC server written in Rust that manages the task queue and worker pool.
+The `team` daemon — a gRPC server written in Rust that manages the task queue, worker pool, and Centy auto-polling.
 
 ## Build
 
@@ -13,26 +13,48 @@ Requires `protoc` (Protocol Buffer compiler) for the build step.
 ## Run
 
 ```bash
-cargo run -- --config team.toml
+DAEMON_PORT=50051 cargo run
 ```
 
 Or with the release binary:
 
 ```bash
-./target/release/daemon --config team.toml
+DAEMON_PORT=50051 ./target/release/daemon
 ```
 
-The daemon listens on `[::1]:50051` by default. Set `DAEMON_PORT` to override the port, or configure it in a `.env` file.
+Override the config file location:
+
+```bash
+CONFIG_PATH=~/.config/team/config.toml DAEMON_PORT=50051 ./target/release/daemon
+```
+
+Connect directly by address (skips port derivation):
+
+```bash
+DAEMON_ADDR=[::1]:50051 DAEMON_PORT=50051 ./target/release/daemon
+```
 
 ## Services
 
-Implements three gRPC services defined in `../proto/`:
+Implements four gRPC services defined in `../proto/`:
 
 | Service | Description |
 |---|---|
-| `DaemonService` | Daemon info, config, shutdown |
+| `AgentService` | List available gstack agents (filtered by `enabled_agents` config) |
+| `DaemonService` | Daemon info, config management, reload, shutdown |
 | `QueueService` | Enqueue tasks, list/update/remove from queue |
 | `WorkerService` | Worker pool status |
+
+## Background tasks
+
+Two background loops start automatically on boot:
+
+- **Worker pool** — picks the highest-priority QUEUED task, marks it RUNNING, calls `worktree open <issue-ref>` (with `TEAM_AGENT` set if the task has an agent), waits for exit, marks COMPLETED or FAILED.
+- **Centy poller** — every 30 s, runs `centy list issues --status "in queue" --global --json` and auto-enqueues any issue not already in the queue. Issues already present (in any status) are skipped to prevent re-dispatch within the 7-day retention window.
+
+## Queue persistence
+
+The queue is stored as JSON alongside the config file (`queue.json`). On each save, tasks that are COMPLETED or FAILED and older than 7 days are pruned. Tasks that were RUNNING when the daemon last exited are reset to QUEUED on restart.
 
 ## Proto generation
 
