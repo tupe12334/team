@@ -9,7 +9,7 @@ generate: ## Regenerate all code from proto files
 	export PATH="$$PATH:$(CURDIR)/node_modules/.bin" && buf generate
 	# Workaround for protoc-gen-cobra bug: &Empty{} → &emptypb.Empty{}
 	# https://github.com/NathanBaulch/protoc-gen-cobra/issues (unqualified Empty for google.protobuf.Empty)
-	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/agents.cobra.pb.go cli/gen/daemon.cobra.pb.go
+	perl -pi -e 's/v := &Empty\{\}/v := \&emptypb.Empty{}/g' cli/gen/agents.cobra.pb.go cli/gen/daemon.cobra.pb.go
 
 .PHONY: build
 build: generate ## Generate proto bindings then build CLI, daemon, MCP server, client, and TUI
