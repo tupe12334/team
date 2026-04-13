@@ -150,3 +150,146 @@ pub(crate) fn issue_ref_json_to_proto(j: IssueRefJson) -> Option<IssueRef> {
     };
     Some(IssueRef { r#ref: Some(r) })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn github_proto(org: &str, repo: &str, number: &str) -> IssueRef {
+        IssueRef { r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
+            organization: org.into(), repository: repo.into(), number: number.into(),
+        }))}
+    }
+    fn centy_proto(org: &str, repo: &str, number: &str) -> IssueRef {
+        IssueRef { r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
+            organization: org.into(), repository: repo.into(), number: number.into(),
+        }))}
+    }
+    fn jira_proto(id: &str) -> IssueRef {
+        IssueRef { r#ref: Some(issue_ref::Ref::Jira(JiraIssueRef { id: id.into() })) }
+    }
+
+    // --- Display (serialization format) ---
+
+    #[test]
+    fn github_display() {
+        let j = IssueRefJson::Github { organization: "acme".into(), repository: "backend".into(), number: "42".into() };
+        assert_eq!(j.to_string(), "github:acme/backend#42");
+    }
+
+    #[test]
+    fn centy_display() {
+        let j = IssueRefJson::Centy { organization: "acme".into(), repository: "proj".into(), number: "7".into() };
+        assert_eq!(j.to_string(), "centy:acme/proj#7");
+    }
+
+    #[test]
+    fn jira_display() {
+        let j = IssueRefJson::Jira { id: "PROJ-123".into() };
+        assert_eq!(j.to_string(), "jira:PROJ-123");
+    }
+
+    // --- Parse (deserialization) ---
+
+    #[test]
+    fn parse_github_string() {
+        let j: IssueRefJson = serde_json::from_str(r#""github:acme/backend#42""#).unwrap();
+        assert_eq!(j.to_string(), "github:acme/backend#42");
+    }
+
+    #[test]
+    fn parse_centy_string() {
+        let j: IssueRefJson = serde_json::from_str(r#""centy:acme/proj#7""#).unwrap();
+        assert_eq!(j.to_string(), "centy:acme/proj#7");
+    }
+
+    #[test]
+    fn parse_jira_string() {
+        let j: IssueRefJson = serde_json::from_str(r#""jira:PROJ-123""#).unwrap();
+        assert_eq!(j.to_string(), "jira:PROJ-123");
+    }
+
+    #[test]
+    fn parse_link_string() {
+        let j: IssueRefJson = serde_json::from_str(r#""link:https://example.com/foo""#).unwrap();
+        assert!(matches!(j, IssueRefJson::Link { .. }));
+    }
+
+    #[test]
+    fn parse_invalid_string_errors() {
+        assert!(serde_json::from_str::<IssueRefJson>(r#""unknown:stuff""#).is_err());
+    }
+
+    // --- Legacy object format (backward compat) ---
+
+    #[test]
+    fn parse_legacy_github_object() {
+        let json = r#"{"type":"github","organization":"acme","repository":"backend","number":"42"}"#;
+        let j: IssueRefJson = serde_json::from_str(json).unwrap();
+        assert_eq!(j.to_string(), "github:acme/backend#42");
+    }
+
+    #[test]
+    fn parse_legacy_centy_object() {
+        let json = r#"{"type":"centy","organization":"acme","repository":"proj","number":"5"}"#;
+        let j: IssueRefJson = serde_json::from_str(json).unwrap();
+        assert_eq!(j.to_string(), "centy:acme/proj#5");
+    }
+
+    #[test]
+    fn parse_legacy_jira_object() {
+        let json = r#"{"type":"jira","id":"BUG-99"}"#;
+        let j: IssueRefJson = serde_json::from_str(json).unwrap();
+        assert_eq!(j.to_string(), "jira:BUG-99");
+    }
+
+    // --- Proto conversion round-trips ---
+
+    #[test]
+    fn github_proto_round_trip() {
+        let proto = github_proto("acme", "backend", "42");
+        let j = IssueRefJson::from(proto);
+        let restored = issue_ref_json_to_proto(j).unwrap();
+        assert_eq!(restored, github_proto("acme", "backend", "42"));
+    }
+
+    #[test]
+    fn centy_proto_round_trip() {
+        let proto = centy_proto("acme", "proj", "7");
+        let j = IssueRefJson::from(proto);
+        let restored = issue_ref_json_to_proto(j).unwrap();
+        assert_eq!(restored, centy_proto("acme", "proj", "7"));
+    }
+
+    #[test]
+    fn jira_proto_round_trip() {
+        let proto = jira_proto("PROJ-123");
+        let j = IssueRefJson::from(proto);
+        let restored = issue_ref_json_to_proto(j).unwrap();
+        assert_eq!(restored, jira_proto("PROJ-123"));
+    }
+
+    #[test]
+    fn link_json_to_proto_returns_none() {
+        let j = IssueRefJson::Link { url: "https://example.com".into() };
+        assert!(issue_ref_json_to_proto(j).is_none());
+    }
+
+    // --- JSON serde round-trips ---
+
+    #[test]
+    fn github_serde_round_trip() {
+        let j = IssueRefJson::Github { organization: "acme".into(), repository: "backend".into(), number: "42".into() };
+        let serialized = serde_json::to_string(&j).unwrap();
+        let restored: IssueRefJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.to_string(), j.to_string());
+    }
+
+    #[test]
+    fn centy_serde_round_trip() {
+        let j = IssueRefJson::Centy { organization: "acme".into(), repository: "proj".into(), number: "7".into() };
+        let serialized = serde_json::to_string(&j).unwrap();
+        let restored: IssueRefJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.to_string(), j.to_string());
+    }
+}

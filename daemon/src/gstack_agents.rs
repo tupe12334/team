@@ -57,3 +57,62 @@ pub fn filter(enabled: &[String]) -> Vec<&'static AgentDef> {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_returns_35_agents() {
+        assert_eq!(AGENTS.len(), 35);
+    }
+
+    #[test]
+    fn filter_empty_returns_all() {
+        let result = filter(&[]);
+        assert_eq!(result.len(), 35);
+    }
+
+    #[test]
+    fn filter_subset_returns_only_listed() {
+        let enabled = vec!["review".to_string(), "qa".to_string(), "ship".to_string()];
+        let result = filter(&enabled);
+        assert_eq!(result.len(), 3);
+        let names: Vec<&str> = result.iter().map(|a| a.name).collect();
+        assert!(names.contains(&"review"));
+        assert!(names.contains(&"qa"));
+        assert!(names.contains(&"ship"));
+    }
+
+    #[test]
+    fn filter_unknown_names_are_ignored() {
+        let enabled = vec!["review".to_string(), "nonexistent-agent".to_string()];
+        let result = filter(&enabled);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "review");
+    }
+
+    #[test]
+    fn filter_single_agent() {
+        let enabled = vec!["ship".to_string()];
+        let result = filter(&enabled);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "ship");
+        assert!(!result[0].description.is_empty());
+    }
+
+    #[test]
+    fn all_agent_names_are_nonempty_and_unique() {
+        let names: Vec<&str> = AGENTS.iter().map(|a| a.name).collect();
+        assert!(names.iter().all(|n| !n.is_empty()));
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), names.len(), "duplicate agent names detected");
+    }
+
+    #[test]
+    fn all_agent_descriptions_are_nonempty() {
+        assert!(AGENTS.iter().all(|a| !a.description.is_empty()));
+    }
+}
