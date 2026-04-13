@@ -24,8 +24,9 @@ The server communicates over stdio (MCP standard). It connects to the daemon at 
 
 ## MCP tools exposed
 
-All three daemon gRPC services are forwarded as MCP tools:
+All four daemon gRPC services are forwarded as MCP tools:
 
+- **AgentService** — `get-available-agents`
 - **DaemonService** — `get-info`, `get-config`, `update-config`, `reload-config`, `shutdown`
 - **QueueService** — `enqueue`, `list-queue`, `update-task`, `remove-task`
 - **WorkerService** — `get-worker-status`

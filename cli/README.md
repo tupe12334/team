@@ -43,7 +43,7 @@ team queue-service remove-task --task-id <id>
 team worker-service get-worker-status
 ```
 
-The daemon address defaults to `[::1]:50051`. Override with the `--addr` flag or `DAEMON_ADDR` environment variable.
+The daemon address defaults to `[::1]:50051`. Override with the `--server-addr` flag or `DAEMON_ADDR` environment variable.
 
 ## Code generation
 
