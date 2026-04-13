@@ -86,7 +86,7 @@ describe("queueEnqueue", () => {
   it("returns task on success", async () => {
     const task = { id: "t2", status: 1, priority: 5 };
     mockGrpcCall.mockResolvedValueOnce({ task });
-    const issueRef = { github: { organization: "acme", repository: "app", number: 7 } };
+    const issueRef = { github: { organization: "acme", repository: "app", number: "7" } };
     const result = await queueEnqueue(issueRef);
     expect(result).toEqual(task);
   });

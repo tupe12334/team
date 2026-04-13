@@ -39,7 +39,8 @@ run: ## Run the daemon and client concurrently
 	cd daemon && cargo run & DAEMON_ADDR="[::1]:$(DAEMON_PORT)" pnpm --prefix client dev; kill %1
 
 .PHONY: test
-test: ## Run all tests (client Vitest + daemon Rust unit tests)
+test: ## Run all tests (TypeScript typecheck + client Vitest + daemon Rust unit tests)
+	cd client && pnpm exec tsc --noEmit
 	cd client && pnpm test
 	cd daemon && cargo test
 

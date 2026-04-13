@@ -20,7 +20,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 describe("PATCH /api/queue/[id]", () => {
   it("updates task and returns result", async () => {
     const task = { id: "t1", status: 2, agent: "qa", priority: 3 };
-    mockUpdate.mockResolvedValueOnce(task);
+    mockUpdate.mockResolvedValueOnce(task as never);
     const req = new Request("http://localhost/api/queue/t1", {
       method: "PATCH",
       body: JSON.stringify({ agent: "qa", priority: 3 }),

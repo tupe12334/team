@@ -16,7 +16,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 describe("GET /api/queue", () => {
   it("returns task list on success", async () => {
     const tasks = [{ id: "t1", status: 1 }, { id: "t2", status: 3 }];
-    mockList.mockResolvedValueOnce(tasks);
+    mockList.mockResolvedValueOnce(tasks as never);
     const res = await GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(tasks);
@@ -32,17 +32,17 @@ describe("GET /api/queue", () => {
 describe("POST /api/queue", () => {
   it("enqueues task and returns 201", async () => {
     const task = { id: "t3", status: 1, priority: 5 };
-    mockEnqueue.mockResolvedValueOnce(task);
+    mockEnqueue.mockResolvedValueOnce(task as never);
     const req = new Request("http://localhost/api/queue", {
       method: "POST",
-      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: 7 } }, agent: "review", priority: 5 }),
+      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: "7" } }, agent: "review", priority: 5 }),
       headers: { "Content-Type": "application/json" },
     });
     const res = await POST(req as never);
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual(task);
     expect(mockEnqueue).toHaveBeenCalledWith(
-      { github: { organization: "acme", repository: "app", number: 7 } },
+      { github: { organization: "acme", repository: "app", number: "7" } },
       "review",
       5
     );
@@ -64,7 +64,7 @@ describe("POST /api/queue", () => {
     mockEnqueue.mockRejectedValueOnce(new Error("enqueue failed"));
     const req = new Request("http://localhost/api/queue", {
       method: "POST",
-      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: 1 } } }),
+      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: "1" } } }),
       headers: { "Content-Type": "application/json" },
     });
     const res = await POST(req as never);
