@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useDaemonPanel } from "./useDaemonPanel";
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 function okFetch(data: unknown) {
   return { ok: true, json: () => Promise.resolve(data), text: () => Promise.resolve("") };
@@ -27,6 +27,17 @@ describe("useDaemonPanel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.info).toBeNull();
     expect(result.current.error).toBe("bad gateway");
+  });
+
+  it("polls every 5 seconds", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    const fetchMock = vi.fn().mockResolvedValue(okFetch(info));
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    vi.advanceTimersByTime(5000);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
   it("handleReload calls POST and re-fetches", async () => {

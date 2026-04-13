@@ -6,6 +6,7 @@ mod proto {
     tonic::include_proto!("team");
 }
 
+mod centy_poller;
 mod gstack_agents;
 mod issue_ref_json;
 mod link_resolver;
@@ -45,6 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shared_state = Arc::new(Mutex::new(AppState::new(config_path)));
 
     worker_pool::start(shared_state.clone());
+    centy_poller::start(shared_state.clone());
 
     println!("Daemon listening on {addr}");
 

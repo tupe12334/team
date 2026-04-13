@@ -1,5 +1,5 @@
 /* eslint-disable single-export/single-export */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface DaemonInfo {
   version: string;
@@ -16,6 +16,7 @@ export function useDaemonPanel() {
   const [loading, setLoading] = useState(true);
   const [reloading, setReloading] = useState(false);
   const [shuttingDown, setShuttingDown] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchInfo = useCallback(async () => {
     try {
@@ -31,7 +32,12 @@ export function useDaemonPanel() {
     }
   }, []);
 
-  useEffect(() => { void fetchInfo(); }, [fetchInfo]);
+  useEffect(() => {
+    void fetchInfo();
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    intervalRef.current = setInterval(fetchInfo, 5000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchInfo]);
 
   const handleReload = async () => {
     setReloading(true);

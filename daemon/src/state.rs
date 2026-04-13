@@ -150,7 +150,27 @@ impl AppState {
         }
     }
 
-    pub fn save_queue(&self) -> Result<(), String> {
+    /// Remove completed/failed tasks whose `updated_at` is older than `max_age_secs`.
+    pub fn prune_old_tasks(&mut self, max_age_secs: i64) {
+        let cutoff = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64
+            - max_age_secs;
+        self.queue.retain(|t| {
+            let done = t.status == TaskStatus::Completed as i32
+                || t.status == TaskStatus::Failed as i32;
+            if !done {
+                return true; // keep active tasks always
+            }
+            // Keep if updated_at is recent enough (or missing — defensive).
+            t.updated_at.as_ref().is_none_or(|ts| ts.seconds >= cutoff)
+        });
+    }
+
+    pub fn save_queue(&mut self) -> Result<(), String> {
+        // Prune stale terminal tasks (>7 days old) before persisting.
+        self.prune_old_tasks(7 * 24 * 3600);
         let json_tasks: Vec<TaskJson> = self.queue.iter().cloned().map(TaskJson::from).collect();
         let contents = serde_json::to_string_pretty(&json_tasks).map_err(|e| e.to_string())?;
         if let Some(parent) = std::path::Path::new(&self.queue_path).parent() {

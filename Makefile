@@ -20,8 +20,11 @@ build: ## Build the CLI binary, daemon, MCP server, client, and TUI
 	cd client && pnpm build
 
 .PHONY: install
-install: ## Install the CLI to GOBIN
-	cd cli && go install .
+install: ## Install all binaries: CLI and MCP server to GOBIN, daemon and TUI to ~/.cargo/bin
+	cd cli && GOWORK=off go install .
+	cd mcp && go mod tidy && go install .
+	cd daemon && cargo install --path .
+	cd tui && cargo install --path .
 
 .PHONY: mcp
 mcp: ## Build the MCP server binary
@@ -34,6 +37,10 @@ tui: ## Run the TUI
 .PHONY: run
 run: ## Run the daemon and client concurrently
 	cd daemon && cargo run & DAEMON_ADDR="[::1]:$(DAEMON_PORT)" pnpm --prefix client dev; kill %1
+
+.PHONY: test
+test: ## Run all tests
+	cd client && pnpm test
 
 .PHONY: lint
 lint: ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
