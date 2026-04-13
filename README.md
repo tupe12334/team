@@ -25,7 +25,8 @@
 ## Build
 
 ```bash
-make build
+pnpm install   # installs proto code-gen tooling (ts-proto etc.)
+make build     # generates proto bindings, then compiles all components
 ```
 
 This produces:

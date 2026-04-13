@@ -78,10 +78,10 @@ tui/            Rust terminal UI (ratatui)
 # 1. Copy the environment file
 cp .env.example .env          # set DAEMON_PORT (default 50051)
 
-# 2. Install JS dependencies (required for buf generate)
+# 2. Install JS dependencies (required for proto code generation)
 pnpm install
 
-# 3. Build everything
+# 3. Build everything (runs proto generation first, then compiles all components)
 make build
 
 # 4. Run daemon + web UI together
