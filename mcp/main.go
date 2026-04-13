@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -16,7 +17,11 @@ import (
 func main() {
 	addr := os.Getenv("DAEMON_ADDR")
 	if addr == "" {
-		addr = "[::1]:50051"
+		port := os.Getenv("DAEMON_PORT")
+		if port == "" {
+			port = "50051"
+		}
+		addr = fmt.Sprintf("[::1]:%s", port)
 	}
 
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -27,6 +32,7 @@ func main() {
 
 	rawServer, srv := mark3labs.NewServer("team-daemon", "0.1.0")
 
+	genmcp.ForwardToAgentServiceClient(srv, gen.NewAgentServiceClient(conn))
 	genmcp.ForwardToDaemonServiceClient(srv, gen.NewDaemonServiceClient(conn))
 	genmcp.ForwardToQueueServiceClient(srv, gen.NewQueueServiceClient(conn))
 	genmcp.ForwardToWorkerServiceClient(srv, gen.NewWorkerServiceClient(conn))

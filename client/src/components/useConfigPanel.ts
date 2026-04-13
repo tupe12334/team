@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 export interface DaemonConfig {
   workersCount: number;
   logLevel: string;
+  enabledAgents: string[];
 }
 
 export class ApiError extends Error {}
@@ -36,7 +37,8 @@ export function useConfigPanel() {
 
   const isDirty = draft && config && (
     draft.workersCount !== config.workersCount ||
-    draft.logLevel !== config.logLevel
+    draft.logLevel !== config.logLevel ||
+    draft.enabledAgents.join(",") !== config.enabledAgents.join(",")
   );
 
   const handleSave = async () => {

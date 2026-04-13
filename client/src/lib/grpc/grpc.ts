@@ -13,6 +13,8 @@ export class DaemonPortMissingError extends Error {
 
 function getDaemonAddr(): string {
   // eslint-disable-next-line no-restricted-syntax
+  if (process.env.DAEMON_ADDR) return process.env.DAEMON_ADDR;
+  // eslint-disable-next-line no-restricted-syntax
   const daemonPort = process.env.DAEMON_PORT;
   if (!daemonPort) throw new DaemonPortMissingError();
   // eslint-disable-next-line no-restricted-syntax, default/no-localhost

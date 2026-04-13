@@ -12,8 +12,9 @@ generate: ## Regenerate all code from proto files
 	sed -i '' 's/v := &Empty{}/v := \&emptypb.Empty{}/g' cli/gen/agents.cobra.pb.go cli/gen/daemon.cobra.pb.go
 
 .PHONY: build
-build: ## Build the CLI binary, daemon, client, and TUI
+build: ## Build the CLI binary, daemon, MCP server, client, and TUI
 	cd cli && GOWORK=off go build -o ../bin/team .
+	cd mcp && go mod tidy && go build -o ../bin/mcp-server .
 	cd daemon && cargo build
 	cd tui && cargo build
 	cd client && pnpm build
