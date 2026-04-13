@@ -1,30 +1,34 @@
 flowchart TD
     subgraph Sources["Enqueue Sources"]
-        A[Centy: Status → In Queue]
-        B[Manual]
+        A["Centy poller\n(status = 'in queue', every 30s)"]
+        B[Manual / Web App]
         C[CLI]
-        D[Web App]
-        E[MCP]
+        D[MCP]
     end
 
-    Q[(Queue)]
+    Q[(Queue\nJSON on disk)]
 
-    A --> Q
+    A -->|auto-enqueue| Q
     B --> Q
     C --> Q
     D --> Q
-    E --> Q
 
-    subgraph Daemon["Daemon"]
-        QM[Queue Manager]
-        DI[Discovery]
-        AS[Assignment]
+    subgraph Daemon["Daemon (Rust · gRPC)"]
+        WP[Worker Pool]
+        CP[Centy Poller]
     end
 
-    Q --> QM
-    QM --> DI
-    DI --> AS
+    CP -->|poll centy CLI| A
+    Q -->|highest-priority QUEUED| WP
 
-    WI[worktree-io]
+    WP -->|worktree open ref\nTEAM_AGENT=agent| WI
 
-    AS --> WI
+    subgraph WI["worktree-io"]
+        WC[Create workspace]
+        Hook["post:open hook\nclause /gstack-skill"]
+    end
+
+    WC --> Hook
+
+    Hook -->|exit 0| DONE[Task → COMPLETED\n7-day retention]
+    Hook -->|exit ≠0| FAIL[Task → FAILED\n7-day retention]

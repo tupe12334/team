@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { useQueuePanel } from "./useQueuePanel";
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -44,6 +44,40 @@ describe("useQueuePanel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe("queue unavailable");
     expect(result.current.tasks).toEqual([]);
+  });
+
+  it("handleDelete removes task on success", async () => {
+    const fetchMock = makeFetch(tasks, agents);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/queue" && !init) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      }
+      if (url === "/api/agents") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(agents) });
+      }
+      // DELETE
+      return Promise.resolve({ ok: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleDelete("t1"); });
+    expect(result.current.tasks.find((t) => t.id === "t1")).toBeUndefined();
+  });
+
+  it("handleDelete refetches on failure instead of removing", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue") return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      // DELETE fails
+      return Promise.resolve({ ok: false });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleDelete("t1"); });
+    // task should still be present (refetched)
+    expect(result.current.tasks.find((t) => t.id === "t1")).toBeDefined();
   });
 
   it("polls queue every 5 seconds", async () => {

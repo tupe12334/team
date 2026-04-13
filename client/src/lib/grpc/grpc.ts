@@ -17,8 +17,8 @@ function getDaemonAddr(): string {
   // eslint-disable-next-line no-restricted-syntax
   const daemonPort = process.env.DAEMON_PORT;
   if (!daemonPort) throw new DaemonPortMissingError();
-  // eslint-disable-next-line no-restricted-syntax, default/no-localhost
-  return `${process.env.DAEMON_HOST ?? "localhost"}:${daemonPort}`;
+  // eslint-disable-next-line no-restricted-syntax
+  return `${process.env.DAEMON_HOST ?? "[::1]"}:${daemonPort}`;
 }
 
 let _agent: AgentServiceClient | null = null;

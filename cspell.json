@@ -168,6 +168,8 @@
     "worktree",
     "turbopack",
     "esbuild",
-    "protobufjs"
+    "protobufjs",
+    "refetches",
+    "refetched"
   ]
 }

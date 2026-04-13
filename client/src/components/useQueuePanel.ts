@@ -78,9 +78,18 @@ export function useQueuePanel() {
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    await fetch(`/api/queue/${id}`, { method: "DELETE" });
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    setDeletingId(null);
+    try {
+      const res = await fetch(`/api/queue/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setTasks((prev) => prev.filter((t) => t.id !== id));
+      } else {
+        await fetchTasks();
+      }
+    } catch {
+      await fetchTasks();
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return {
