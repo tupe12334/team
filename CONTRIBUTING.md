@@ -99,12 +99,12 @@ pnpm --prefix client dev
 ## Development workflow
 
 ```bash
-make lint    # go vet (CLI + MCP), cargo clippy (daemon + TUI), ESLint
-make test    # tsc --noEmit, Vitest (57 tests), cargo test (53 tests)
-make build   # full build: CLI, MCP, daemon, TUI, Next.js
+make lint    # proto generation + go vet (CLI + MCP), cargo clippy (daemon + TUI), ESLint
+make test    # proto generation + tsc --noEmit, Vitest (57 tests), cargo test (53 tests)
+make build   # proto generation + compile CLI, MCP, daemon, TUI, Next.js
 ```
 
-All three run automatically on every `git push` via the Husky pre-push hook.
+All three automatically run `make generate` first (so proto bindings are always fresh). All three run on every `git push` via the Husky pre-push hook.
 
 ## Proto changes
 
