@@ -2,7 +2,7 @@ import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@grpc/grpc-js", "@grpc/proto-loader"],
+  serverExternalPackages: ["@grpc/grpc-js"],
   turbopack: {
     root: __dirname,
     resolveAlias: {
