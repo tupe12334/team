@@ -170,6 +170,7 @@
     "esbuild",
     "protobufjs",
     "refetches",
-    "refetched"
+    "refetched",
+    "Vitest"
   ]
 }

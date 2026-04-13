@@ -145,3 +145,48 @@ fn extract_org_repo(path: &str) -> (String, String) {
         _ => ("unknown".to_string(), "unknown".to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_typical_path() {
+        assert_eq!(
+            extract_org_repo("/home/user/dev/github/acme/my-repo"),
+            ("acme".into(), "my-repo".into())
+        );
+    }
+
+    #[test]
+    fn extract_trailing_slash() {
+        assert_eq!(
+            extract_org_repo("/home/user/dev/git/github/acme/backend/"),
+            ("acme".into(), "backend".into())
+        );
+    }
+
+    #[test]
+    fn extract_short_path() {
+        assert_eq!(
+            extract_org_repo("/org/repo"),
+            ("org".into(), "repo".into())
+        );
+    }
+
+    #[test]
+    fn extract_empty_path_falls_back() {
+        assert_eq!(
+            extract_org_repo(""),
+            ("unknown".into(), "unknown".into())
+        );
+    }
+
+    #[test]
+    fn extract_single_component_falls_back() {
+        assert_eq!(
+            extract_org_repo("noslash"),
+            ("unknown".into(), "unknown".into())
+        );
+    }
+}

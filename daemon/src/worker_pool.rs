@@ -176,3 +176,45 @@ fn now_seconds() -> i64 {
         .unwrap_or_default()
         .as_secs() as i64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, JiraIssueRef};
+
+    fn github_ref(org: &str, repo: &str, number: &str) -> IssueRef {
+        IssueRef { r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
+            organization: org.into(), repository: repo.into(), number: number.into(),
+        }))}
+    }
+    fn centy_ref(number: &str) -> IssueRef {
+        IssueRef { r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
+            organization: "acme".into(), repository: "proj".into(), number: number.into(),
+        }))}
+    }
+    fn jira_ref(id: &str) -> IssueRef {
+        IssueRef { r#ref: Some(issue_ref::Ref::Jira(JiraIssueRef { id: id.into() })) }
+    }
+
+    #[test]
+    fn worktree_ref_github() {
+        assert_eq!(to_worktree_ref(&github_ref("acme", "my-repo", "42")), Some("acme/my-repo#42".into()));
+    }
+
+    #[test]
+    fn worktree_ref_centy() {
+        assert_eq!(to_worktree_ref(&centy_ref("7")), Some("centy:7".into()));
+    }
+
+    #[test]
+    fn worktree_ref_jira_returns_none() {
+        // Jira is not supported by worktree-io
+        assert_eq!(to_worktree_ref(&jira_ref("PROJ-123")), None);
+    }
+
+    #[test]
+    fn worktree_ref_empty_issue_ref_returns_none() {
+        let empty = IssueRef { r#ref: None };
+        assert_eq!(to_worktree_ref(&empty), None);
+    }
+}

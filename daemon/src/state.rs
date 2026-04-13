@@ -187,3 +187,101 @@ fn derive_queue_path(config_path: &str) -> String {
         .unwrap_or_default();
     format!("{parent}/queue.json")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_task(status: TaskStatus, updated_secs: Option<i64>) -> Task {
+        Task {
+            id: uuid::Uuid::new_v4().to_string(),
+            issue_ref: None,
+            agent: None,
+            status: status as i32,
+            priority: 0,
+            created_at: None,
+            updated_at: updated_secs.map(|s| prost_types::Timestamp { seconds: s, nanos: 0 }),
+        }
+    }
+
+    fn now_secs() -> i64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64
+    }
+
+    #[test]
+    fn prune_removes_old_completed_tasks() {
+        let mut state = AppState {
+            config_path: "/tmp/test-config.toml".into(),
+            queue_path: "/tmp/test-queue.json".into(),
+            queue: vec![
+                make_task(TaskStatus::Completed, Some(now_secs() - 8 * 24 * 3600)), // 8 days old, pruned
+                make_task(TaskStatus::Completed, Some(now_secs() - 6 * 24 * 3600)), // 6 days old, kept
+                make_task(TaskStatus::Queued, Some(now_secs() - 100 * 24 * 3600)),  // active, kept
+                make_task(TaskStatus::Running, None),                                // active, kept
+            ],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        state.prune_old_tasks(7 * 24 * 3600);
+        assert_eq!(state.queue.len(), 3);
+        assert!(state.queue.iter().all(|t| t.status != TaskStatus::Completed as i32 || {
+            t.updated_at.as_ref().map_or(true, |ts| ts.seconds > now_secs() - 7 * 24 * 3600)
+        }));
+    }
+
+    #[test]
+    fn prune_removes_old_failed_tasks() {
+        let mut state = AppState {
+            config_path: "/tmp/test-config.toml".into(),
+            queue_path: "/tmp/test-queue.json".into(),
+            queue: vec![
+                make_task(TaskStatus::Failed, Some(now_secs() - 8 * 24 * 3600)),
+                make_task(TaskStatus::Failed, Some(now_secs() - 1)),
+            ],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        state.prune_old_tasks(7 * 24 * 3600);
+        assert_eq!(state.queue.len(), 1);
+    }
+
+    #[test]
+    fn prune_keeps_tasks_with_no_updated_at() {
+        let mut state = AppState {
+            config_path: "/tmp/test-config.toml".into(),
+            queue_path: "/tmp/test-queue.json".into(),
+            queue: vec![make_task(TaskStatus::Completed, None)],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        state.prune_old_tasks(7 * 24 * 3600);
+        // Tasks without updated_at are kept defensively
+        assert_eq!(state.queue.len(), 1);
+    }
+
+    #[test]
+    fn prune_empty_queue_is_noop() {
+        let mut state = AppState {
+            config_path: "/tmp/test-config.toml".into(),
+            queue_path: "/tmp/test-queue.json".into(),
+            queue: vec![],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        state.prune_old_tasks(7 * 24 * 3600);
+        assert_eq!(state.queue.len(), 0);
+    }
+
+    #[test]
+    fn derive_queue_path_sibling_of_config() {
+        assert_eq!(derive_queue_path("/home/user/.config/team/config.toml"), "/home/user/.config/team/queue.json");
+    }
+
+    #[test]
+    fn derive_queue_path_root_config() {
+        assert_eq!(derive_queue_path("config.toml"), "/queue.json");
+    }
+}

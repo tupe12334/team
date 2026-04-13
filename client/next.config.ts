@@ -1,9 +1,13 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@grpc/grpc-js", "@grpc/proto-loader"],
   turbopack: {
     root: __dirname,
+    resolveAlias: {
+      tailwindcss: path.resolve(__dirname, "node_modules/tailwindcss"),
+    },
   },
 };
 
