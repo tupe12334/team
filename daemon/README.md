@@ -28,12 +28,6 @@ Override the config file location:
 CONFIG_PATH=~/.config/team/config.toml DAEMON_PORT=50051 ./target/release/daemon
 ```
 
-Connect directly by address (skips port derivation):
-
-```bash
-DAEMON_ADDR=[::1]:50051 DAEMON_PORT=50051 ./target/release/daemon
-```
-
 ## Services
 
 Implements four gRPC services defined in `../proto/`:
