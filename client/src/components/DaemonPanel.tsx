@@ -3,8 +3,8 @@
 import SectionHeader from "@/components/SectionHeader";
 import { useDaemonPanel } from "@/components/useDaemonPanel";
 
-function formatUptime(raw: string): string {
-  const s = parseInt(raw, 10) || 0;
+function formatUptime(raw: number): string {
+  const s = raw || 0;
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;

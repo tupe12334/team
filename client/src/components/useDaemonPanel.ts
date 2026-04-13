@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export interface DaemonInfo {
   version: string;
-  uptimeSeconds: string;
+  uptimeSeconds: number;
   configPath: string;
   workersCount: number;
 }

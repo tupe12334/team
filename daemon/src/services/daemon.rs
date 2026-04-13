@@ -36,7 +36,7 @@ impl DaemonService for DaemonServiceImpl {
             version: env!("CARGO_PKG_VERSION").to_string(),
             uptime_seconds: self.start_time.elapsed().as_secs() as i64,
             config_path: state.config_path.clone(),
-            workers_count: state.workers.len() as i32,
+            workers_count: state.config.workers_count,
         };
         Ok(Response::new(GetInfoResponse {
             result: Some(get_info_response::Result::Ok(info)),
