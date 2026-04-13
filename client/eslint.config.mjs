@@ -20,6 +20,18 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Test file overrides — relax rules that don't apply in spec context.
+  {
+    files: ["**/*.spec.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": "off",
+      "error/no-literal-error-message": "off",
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      "import/first": "off",
+      "import/order": "off",
+      "prefer-promise-reject-errors": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
