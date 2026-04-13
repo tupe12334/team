@@ -21,6 +21,7 @@ buf generate
 
 This generates:
 - **Go** bindings into `cli/gen/` (used by both `cli` and `mcp`)
+- **TypeScript** bindings into `client/src/gen/` (used by the Next.js web UI)
 - Rust code is generated at build time by `daemon/build.rs` via `tonic-build`
 
 ## buf.yaml
