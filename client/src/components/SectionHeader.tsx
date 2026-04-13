@@ -1,9 +1,11 @@
+import type { ReactNode } from "react";
+
 export default function SectionHeader({
   children,
   right,
 }: {
-  children: React.ReactNode;
-  right?: React.ReactNode;
+  children: ReactNode;
+  right?: ReactNode;
 }) {
   return (
     <div className="section-header flex items-center justify-between gap-3 mb-5">
