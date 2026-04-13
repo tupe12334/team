@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import SectionHeader from "@/components/SectionHeader";
 import { useDaemonPanel } from "@/components/useDaemonPanel";
 
@@ -15,7 +16,7 @@ function formatUptime(raw: number): string {
   return parts.join(" ");
 }
 
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="daemon-stat flex flex-col gap-1">
       <dt className="daemon-stat__label font-mono text-[10px] tracking-widest uppercase text-[#6e7681]">
