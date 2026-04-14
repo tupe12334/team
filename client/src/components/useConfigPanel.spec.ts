@@ -40,6 +40,7 @@ describe("useConfigPanel", () => {
 
   it("handleSave does nothing when draft is null (fetch not yet resolved)", async () => {
     // draft starts null; fetchConfig never resolves → handleSave hits `if (!draft) return`
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise<never>(() => {})));
     const { result } = renderHook(() => useConfigPanel());
     // draft is still null — loading hasn't completed
