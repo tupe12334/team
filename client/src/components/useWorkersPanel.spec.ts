@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 import { useWorkersPanel } from "./useWorkersPanel";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -71,6 +71,23 @@ describe("useWorkersPanel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toBeNull();
     expect(result.current.error).toBe("connection reset");
+  });
+
+  it("polling clears error when daemon recovers after a failed poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(workerData), text: () => Promise.resolve("") })
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve("service down") })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(workerData), text: () => Promise.resolve("") });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useWorkersPanel());
+    await waitFor(() => expect(result.current.data).toEqual(workerData));
+    act(() => { vi.advanceTimersByTime(5000); });
+    await waitFor(() => expect(result.current.error).toBe("service down"));
+    act(() => { vi.advanceTimersByTime(5000); });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toEqual(workerData);
   });
 
   it("polls every 5 seconds", async () => {

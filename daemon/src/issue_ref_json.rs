@@ -263,6 +263,14 @@ mod tests {
     // --- Legacy object format (backward compat) ---
 
     #[test]
+    fn parse_legacy_link_object() {
+        let json = r#"{"type":"link","url":"https://github.com/acme/repo/issues/1"}"#;
+        let j: IssueRefJson = serde_json::from_str(json).unwrap();
+        assert!(matches!(j, IssueRefJson::Link { .. }));
+        assert_eq!(j.to_string(), "link:https://github.com/acme/repo/issues/1");
+    }
+
+    #[test]
     fn parse_legacy_github_object() {
         let json = r#"{"type":"github","organization":"acme","repository":"backend","number":"42"}"#;
         let j: IssueRefJson = serde_json::from_str(json).unwrap();
