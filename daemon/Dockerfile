@@ -46,6 +46,11 @@ ENV DAEMON_PORT=50051
 ENV DAEMON_HOST=[::]
 ENV HOME=/root
 
+# Set working dir to /root so centy's startup hook finds the .centy stub and
+# doesn't abort with "No .centy folder found" when running --global queries.
+WORKDIR /root
+RUN mkdir -p /root/.centy
+
 EXPOSE 50051
 
 CMD ["daemon"]

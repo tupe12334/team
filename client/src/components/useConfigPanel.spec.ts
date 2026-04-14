@@ -35,12 +35,29 @@ describe("useConfigPanel", () => {
     expect(result.current.isDirty).toBeFalsy();
   });
 
-  it("isDirty is true when draft differs from config", async () => {
+  it("isDirty is true when workersCount differs from config", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(baseConfig)));
     const { result } = renderHook(() => useConfigPanel());
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => { result.current.setDraft({ ...baseConfig, workersCount: 8 }); });
     expect(result.current.isDirty).toBeTruthy();
+  });
+
+  it("isDirty is true when enabledAgents differs from config", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(baseConfig)));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...baseConfig, enabledAgents: ["review", "qa"] }); });
+    expect(result.current.isDirty).toBeTruthy();
+  });
+
+  it("isDirty is false when enabledAgents order and content match config", async () => {
+    const configWithAgents = { ...baseConfig, enabledAgents: ["review", "qa"] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(configWithAgents)));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // draft is initialized to the same value as config
+    expect(result.current.isDirty).toBeFalsy();
   });
 
   it("handleReset restores draft to config", async () => {

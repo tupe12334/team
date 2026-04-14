@@ -43,12 +43,7 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
         // COMPLETED/FAILED tasks are retained for 7 days (see save_queue pruning),
         // which prevents re-dispatch of recently finished work.  Once pruned, a
         // still-"in queue" centy issue will be picked up again on the next poll.
-        let already_present = s.queue.iter().any(|t| {
-            matches!(
-                &t.issue_ref,
-                Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(c)) }) if c.number == issue.number
-            )
-        });
+        let already_present = is_centy_issue_present(&s.queue, &issue);
         if already_present {
             continue;
         }
@@ -134,6 +129,19 @@ async fn fetch_in_queue_issues() -> Result<Vec<CentyIssue>, String> {
     Ok(result)
 }
 
+/// Returns true if a task for this exact centy issue (org + repo + number) is already in the queue.
+fn is_centy_issue_present(queue: &[Task], issue: &CentyIssue) -> bool {
+    queue.iter().any(|t| {
+        matches!(
+            &t.issue_ref,
+            Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(c)) })
+                if c.number == issue.number
+                    && c.organization == issue.organization
+                    && c.repository == issue.repository
+        )
+    })
+}
+
 /// Extracts (organization, repository) from a local file-system project path.
 /// `/home/user/dev/github/acme/my-repo` → `("acme", "my-repo")`
 fn extract_org_repo(path: &str) -> (String, String) {
@@ -149,6 +157,83 @@ fn extract_org_repo(path: &str) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proto::{CentyIssueRef, GitHubIssueRef};
+
+    fn centy_task(org: &str, repo: &str, number: &str) -> Task {
+        Task {
+            id: uuid::Uuid::new_v4().to_string(),
+            issue_ref: Some(IssueRef {
+                r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
+                    organization: org.into(),
+                    repository: repo.into(),
+                    number: number.into(),
+                })),
+            }),
+            agent: None,
+            status: crate::proto::TaskStatus::Queued as i32,
+            priority: 0,
+            created_at: None,
+            updated_at: None,
+        }
+    }
+
+    fn github_task(org: &str, repo: &str, number: &str) -> Task {
+        Task {
+            id: uuid::Uuid::new_v4().to_string(),
+            issue_ref: Some(IssueRef {
+                r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
+                    organization: org.into(),
+                    repository: repo.into(),
+                    number: number.into(),
+                })),
+            }),
+            agent: None,
+            status: crate::proto::TaskStatus::Queued as i32,
+            priority: 0,
+            created_at: None,
+            updated_at: None,
+        }
+    }
+
+    fn centy_issue(org: &str, repo: &str, number: &str) -> CentyIssue {
+        CentyIssue { organization: org.into(), repository: repo.into(), number: number.into(), priority: 0 }
+    }
+
+    #[test]
+    fn is_present_matches_exact_centy_issue() {
+        let queue = vec![centy_task("acme", "backend", "7")];
+        assert!(is_centy_issue_present(&queue, &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_false_for_different_repo() {
+        let queue = vec![centy_task("acme", "frontend", "7")];
+        assert!(!is_centy_issue_present(&queue, &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_false_for_different_org() {
+        let queue = vec![centy_task("other", "backend", "7")];
+        assert!(!is_centy_issue_present(&queue, &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_false_for_different_number() {
+        let queue = vec![centy_task("acme", "backend", "8")];
+        assert!(!is_centy_issue_present(&queue, &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_false_for_github_task_with_same_number() {
+        // A GitHub issue with the same number should NOT block a centy issue
+        let queue = vec![github_task("acme", "backend", "7")];
+        assert!(!is_centy_issue_present(&queue, &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_false_for_empty_queue() {
+        assert!(!is_centy_issue_present(&[], &centy_issue("acme", "backend", "7")));
+    }
 
     #[test]
     fn extract_typical_path() {
