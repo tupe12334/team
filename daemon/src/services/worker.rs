@@ -4,8 +4,7 @@ use tonic::{Request, Response, Status};
 
 use crate::proto::worker_service_server::WorkerService;
 use crate::proto::{
-    worker_status_response, DaemonConfig, WorkerInfo, WorkerStatus, WorkerStatusData,
-    WorkerStatusRequest, WorkerStatusResponse,
+    worker_status_response, WorkerStatusData, WorkerStatusRequest, WorkerStatusResponse,
 };
 use crate::state::AppState;
 
@@ -45,6 +44,7 @@ impl WorkerService for WorkerServiceImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proto::{DaemonConfig, WorkerInfo, WorkerStatus};
 
     fn make_state(workers_count: i32, running: usize) -> Arc<Mutex<AppState>> {
         let mut workers = Vec::new();
