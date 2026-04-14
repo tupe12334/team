@@ -179,6 +179,27 @@ describe("useQueuePanel", () => {
     expect(result.current.submitting).toBe(false);
   });
 
+  it("handleEnqueue returns raw JSON when POST fails with JSON that has no error field (parseError branch 2)", async () => {
+    // parseError branch 2: JSON.parse succeeds BUT parsed.error is not a string → return raw text
+    // Branch 1 tests above cover the .error string extraction; this exercises the fallback
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "POST")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      return Promise.resolve({ ok: false, text: () => Promise.resolve('{"status":"queue overloaded"}') });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setRepo("myrepo"); result.current.setNumber("42"); });
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    // No .error field → parseError returns raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"queue overloaded"}');
+    expect(result.current.submitting).toBe(false);
+  });
+
   it("handleEnqueue with CENTY provider sends centy issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

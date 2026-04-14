@@ -170,6 +170,23 @@ describe("useConfigPanel", () => {
     expect(result.current.saved).toBe(false);
   });
 
+  it("handleSave returns raw JSON when PATCH fails with JSON that has no error field (parseError branch 2)", async () => {
+    // parseError branch 2: JSON.parse succeeds BUT parsed.error is not a string → return raw text
+    // Branch 1 above covers .error string extraction; this exercises the fallback path
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve('{"status":"config locked"}') });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...baseConfig, workersCount: 8 }); });
+    await act(async () => { await result.current.handleSave(); });
+    // No .error field → parseError returns raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"config locked"}');
+    expect(result.current.saving).toBe(false);
+    expect(result.current.saved).toBe(false);
+  });
+
   it("isDirty is false when enabledAgents differ only in order", async () => {
     const configWithAgents = { ...baseConfig, enabledAgents: ["review", "qa"] };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(configWithAgents)));

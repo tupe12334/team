@@ -153,6 +153,21 @@ describe("useDaemonPanel", () => {
     expect(result.current.reloading).toBe(false);
   });
 
+  it("handleReload returns raw JSON when POST fails with JSON that has no error field (parseError branch 2)", async () => {
+    // parseError branch 2: JSON.parse succeeds BUT parsed.error is not a string → return raw text
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(info))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve('{"status":"reload unavailable"}') });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleReload(); });
+    // No .error field → parseError returns raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"reload unavailable"}');
+    expect(result.current.reloading).toBe(false);
+  });
+
   it("handleShutdown sets error when POST fails", async () => {
     const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
     vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
@@ -180,6 +195,22 @@ describe("useDaemonPanel", () => {
     await act(async () => { await result.current.handleShutdown(); });
     // parseError extracts the message — user sees "daemon is busy" not the raw JSON string
     expect(result.current.error).toBe("daemon is busy");
+    expect(result.current.shuttingDown).toBe(false);
+  });
+
+  it("handleShutdown returns raw JSON when POST fails with JSON that has no error field (parseError branch 2)", async () => {
+    // parseError branch 2: JSON.parse succeeds BUT parsed.error is not a string → return raw text
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(info))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve('{"status":"shutdown rejected"}') });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleShutdown(); });
+    // No .error field → parseError returns raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"shutdown rejected"}');
     expect(result.current.shuttingDown).toBe(false);
   });
 
