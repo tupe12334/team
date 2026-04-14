@@ -70,7 +70,7 @@ impl DaemonService for DaemonServiceImpl {
         &self,
         request: Request<UpdateConfigRequest>,
     ) -> Result<Response<UpdateConfigResponse>, Status> {
-        let new_config = request
+        let mut new_config = request
             .into_inner()
             .config
             .unwrap_or_else(|| DaemonConfig {
@@ -94,6 +94,9 @@ impl DaemonService for DaemonServiceImpl {
                 }));
             }
         }
+        // Deduplicate enabled_agents so the stored list is canonical.
+        let mut seen = std::collections::HashSet::new();
+        new_config.enabled_agents.retain(|a| seen.insert(a.clone()));
         let mut state = self.state.lock().await;
         state.config = new_config.clone();
         if let Err(e) = state.save_config() {
@@ -275,5 +278,28 @@ mod tests {
             }
             update_config_response::Result::Error(e) => panic!("unexpected error: {e}"),
         }
+    }
+
+    #[tokio::test]
+    async fn update_config_deduplicates_enabled_agents() {
+        let state = make_state(4);
+        let svc = DaemonServiceImpl::new(state.clone());
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig {
+                workers_count: 4,
+                log_level: "info".into(),
+                enabled_agents: vec!["review".into(), "qa".into(), "review".into()],
+            }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Ok(c) => {
+                assert_eq!(c.enabled_agents, vec!["review", "qa"], "duplicates must be removed");
+            }
+            update_config_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+        // Persisted state must also be deduplicated
+        let locked = state.lock().await;
+        assert_eq!(locked.config.enabled_agents, vec!["review", "qa"]);
     }
 }

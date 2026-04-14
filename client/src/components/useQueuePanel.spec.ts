@@ -162,6 +162,21 @@ describe("useQueuePanel", () => {
     expect(result.current.org).toBe("");
   });
 
+  it("surfaces error when agents endpoint fails", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents") {
+        return Promise.resolve({ ok: false, text: () => Promise.resolve("agents unavailable") });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // agents array remains empty; an error is set so users understand why
+    expect(result.current.agents).toEqual([]);
+    await waitFor(() => expect(result.current.error).toBe("agents unavailable"));
+  });
+
   it("handleEnqueue with LINK provider sends link issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

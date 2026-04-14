@@ -90,6 +90,14 @@ impl QueueService for QueueServiceImpl {
             }));
         }
 
+        if req.priority.map_or(false, |p| p < 0) {
+            return Ok(Response::new(EnqueueResponse {
+                result: Some(enqueue_response::Result::Error(
+                    "priority must be >= 0".to_string(),
+                )),
+            }));
+        }
+
         let task = Task {
             id: Uuid::new_v4().to_string(),
             issue_ref,
@@ -154,6 +162,13 @@ impl QueueService for QueueServiceImpl {
             task.agent = Some(agent);
         }
         if let Some(priority) = req.priority {
+            if priority < 0 {
+                return Ok(Response::new(UpdateTaskResponse {
+                    result: Some(update_task_response::Result::Error(
+                        "priority must be >= 0".to_string(),
+                    )),
+                }));
+            }
             task.priority = priority;
         }
         task.updated_at = Some(prost_types::Timestamp {
@@ -397,6 +412,37 @@ mod tests {
         }
         let req = Request::new(RemoveTaskRequest { task_id });
         assert!(svc.remove_task(req).await.is_err(), "should reject deletion of a running task");
+    }
+
+    #[tokio::test]
+    async fn enqueue_negative_priority_is_rejected() {
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "1".into(),
+            })) }),
+            agent: None,
+            priority: Some(-1),
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        assert_error(res.result, "priority must be >= 0");
+    }
+
+    #[tokio::test]
+    async fn update_task_negative_priority_is_rejected() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state);
+        let task_id = enqueue_github(&svc, "99").await;
+        let req = Request::new(UpdateTaskRequest {
+            task_id,
+            agent: None,
+            priority: Some(-5),
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Error(msg) => assert!(msg.contains("priority must be >= 0")),
+            update_task_response::Result::Task(_) => panic!("expected error, got task"),
+        }
     }
 
     #[tokio::test]
