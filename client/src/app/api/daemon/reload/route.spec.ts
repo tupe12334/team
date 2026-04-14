@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/grpc/client", () => ({
-  daemonReloadConfig: vi.fn(),
-}));
+vi.mock("@/lib/grpc/client", () => {
+  class ApiError extends Error {}
+  return { ApiError, daemonReloadConfig: vi.fn() };
+});
 
 import { daemonReloadConfig } from "@/lib/grpc/client";
 import { POST } from "./route";
@@ -25,5 +26,11 @@ describe("POST /api/daemon/reload", () => {
     expect(res.status).toBe(502);
     const body = await res.json() as { error: string };
     expect(body.error).toBe("reload failed");
+  });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockReload.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const res = await POST();
+    expect(res.status).toBe(503);
   });
 });

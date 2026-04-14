@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { workerGetStatus } from "@/lib/grpc/client";
+import { workerGetStatus, ApiError } from "@/lib/grpc/client";
+import { grpcHttpStatus } from "@/lib/grpc/grpc";
 import { WorkerInfo, workerStatusToJSON } from "@/gen/worker";
 
 function serializeWorker(w: WorkerInfo) {
@@ -23,6 +24,7 @@ export async function GET() {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    const s = err instanceof ApiError ? 400 : grpcHttpStatus(err);
+    return NextResponse.json({ error: message }, { status: s });
   }
 }

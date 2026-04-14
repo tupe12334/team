@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/grpc/client", () => ({
-  daemonShutdown: vi.fn(),
-}));
+vi.mock("@/lib/grpc/client", () => {
+  class ApiError extends Error {}
+  return { ApiError, daemonShutdown: vi.fn() };
+});
 
 import { daemonShutdown } from "@/lib/grpc/client";
 import { POST } from "./route";
@@ -25,5 +26,11 @@ describe("POST /api/daemon/shutdown", () => {
     expect(res.status).toBe(502);
     const body = await res.json() as { error: string };
     expect(body.error).toBe("process gone");
+  });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockShutdown.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const res = await POST();
+    expect(res.status).toBe(503);
   });
 });

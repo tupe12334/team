@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/grpc/client", () => ({
-  workerGetStatus: vi.fn(),
-}));
+vi.mock("@/lib/grpc/client", () => {
+  class ApiError extends Error {}
+  return { ApiError, workerGetStatus: vi.fn() };
+});
 vi.mock("@/gen/worker", () => ({
   WorkerInfo: {},
   workerStatusToJSON: vi.fn((s: number) => (s === 1 ? "BUSY" : "IDLE")),
@@ -58,5 +59,11 @@ describe("GET /api/workers", () => {
     mockGetStatus.mockRejectedValueOnce(new Error("worker service down"));
     const res = await GET();
     expect(res.status).toBe(502);
+  });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockGetStatus.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const res = await GET();
+    expect(res.status).toBe(503);
   });
 });

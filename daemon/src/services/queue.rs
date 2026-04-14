@@ -121,7 +121,10 @@ impl QueueService for QueueServiceImpl {
             }));
         }
         state.queue.push(task.clone());
-        state.save_queue().map_err(Status::internal)?;
+        if let Err(e) = state.save_queue() {
+            state.queue.pop(); // Roll back: must not dispatch a task that was not persisted
+            return Err(Status::internal(format!("failed to persist queue: {e}")));
+        }
         Ok(Response::new(EnqueueResponse {
             result: Some(enqueue_response::Result::Task(task)),
         }))
@@ -499,6 +502,32 @@ mod tests {
             update_task_response::Result::Error(msg) => assert!(msg.contains("unknown agent")),
             update_task_response::Result::Task(_) => panic!("expected error, got task"),
         }
+    }
+
+    #[tokio::test]
+    async fn enqueue_rolls_back_queue_on_save_failure() {
+        // Use a path that cannot be written to force save_queue to fail.
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/enqueue-rollback-test.toml".into(),
+            queue_path: "/nonexistent-dir/queue.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec![] },
+        }));
+        let svc = QueueServiceImpl::new(state.clone());
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "1".into(),
+            })) }),
+            agent: None,
+            priority: None,
+        });
+        let res = svc.enqueue(req).await;
+        // Must return a gRPC error because save failed
+        assert!(res.is_err(), "expected Status::internal when save_queue fails");
+        // Queue must be empty — the push must have been rolled back
+        let locked = state.lock().await;
+        assert!(locked.queue.is_empty(), "queue must be empty after rollback on save failure");
     }
 
     #[tokio::test]
