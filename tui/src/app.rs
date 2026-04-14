@@ -381,4 +381,34 @@ mod tests {
         app.refresh().await;
         assert!(app.daemon_info.is_none(), "stale daemon info must be cleared on error");
     }
+
+    /// refresh() computes active_len via a match on active_tab.  All existing refresh tests
+    /// use the default Tab::Queue arm; this test exercises the Tab::Workers arm specifically.
+    /// When the daemon is unavailable, get_worker_status() clears worker_status to None,
+    /// so active_len = map_or(0, ...) = 0 and the selection-clamp guard stays false.
+    #[tokio::test]
+    async fn refresh_active_len_uses_workers_when_on_workers_tab() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.selected_task = 0;
+        app.refresh().await;
+        // Daemon unreachable → worker_status cleared to None → Tab::Workers arm returns 0
+        assert!(app.worker_status.is_none());
+        // active_len = 0 → clamping condition `active_len > 0` is false → selection unchanged
+        assert_eq!(app.selected_task, 0);
+    }
+
+    /// refresh() computes active_len via a match on active_tab.  All existing refresh tests
+    /// use the default Tab::Queue arm; this test exercises the Tab::Daemon arm specifically
+    /// (Tab::Daemon => 0), verifying that high selection indices are not clamped when
+    /// active_len is always zero on the Daemon tab.
+    #[tokio::test]
+    async fn refresh_active_len_is_zero_on_daemon_tab() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        app.selected_task = 5; // deliberately high — must not be clamped
+        app.refresh().await;
+        // Tab::Daemon => active_len = 0 → clamping guard `active_len > 0` is false
+        assert_eq!(app.selected_task, 5, "selection must not be clamped on Daemon tab");
+    }
 }
