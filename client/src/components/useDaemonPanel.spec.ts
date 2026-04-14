@@ -162,4 +162,46 @@ describe("useDaemonPanel", () => {
     expect(result.current.shuttingDown).toBe(false);
     expect(result.current.error).toBeNull();
   });
+
+  it("sets error via String() when fetchInfo rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in fetchInfo catch — the String(e) branch
+    // (existing "network failure" test uses `new Error` which hits the e.message branch)
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue("daemon unavailable"));
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.info).toBeNull();
+    expect(result.current.error).toBe("daemon unavailable");
+  });
+
+  it("handleReload sets error via String() when fetch rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in handleReload catch — the String(e) branch
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(info))
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      .mockRejectedValueOnce("reload network failure");
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleReload(); });
+    expect(result.current.error).toBe("reload network failure");
+    expect(result.current.reloading).toBe(false);
+  });
+
+  it("handleShutdown sets error via String() when fetch rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in handleShutdown catch — the String(e) branch
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(info))
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      .mockRejectedValueOnce("shutdown network failure");
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleShutdown(); });
+    expect(result.current.error).toBe("shutdown network failure");
+    expect(result.current.shuttingDown).toBe(false);
+  });
 });

@@ -205,4 +205,47 @@ describe("useConfigPanel", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(result.current.error).toBeNull();
   });
+
+  it("sets error via String() when fetchConfig rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in fetchConfig catch — the String(e) branch
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue("config network failure"));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe("config network failure");
+    expect(result.current.draft).toBeNull();
+  });
+
+  it("sets error via String() when polling fetch rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in the setInterval catch — the String(e) branch
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      .mockRejectedValueOnce("poll network failure");
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { vi.advanceTimersByTime(10000); });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(result.current.error).toBe("poll network failure");
+    // draft is preserved — polling catch does not clear it
+    expect(result.current.draft).toEqual(baseConfig);
+  });
+
+  it("handleSave sets error via String() when fetch rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in handleSave catch — the String(e) branch
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      .mockRejectedValueOnce("save network failure");
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...baseConfig, workersCount: 8 }); });
+    await act(async () => { await result.current.handleSave(); });
+    expect(result.current.error).toBe("save network failure");
+    expect(result.current.saving).toBe(false);
+    expect(result.current.saved).toBe(false);
+  });
 });
