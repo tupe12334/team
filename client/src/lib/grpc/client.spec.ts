@@ -96,6 +96,17 @@ describe("queueList", () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "queue error" });
     await expect(queueList()).rejects.toThrow(ApiError);
   });
+
+  it("returns empty array when neither ok nor error is present", async () => {
+    // queueList uses `res.ok?.tasks ?? []` rather than unwrap(), so when the
+    // response contains neither an ok nor an error field the optional chain
+    // short-circuits (ok is undefined → ok?.tasks is undefined → ?? [] → []).
+    // This is intentionally different from other functions that throw
+    // EmptyResponseError in the same situation — an absent task list is valid.
+    mockGrpcCall.mockResolvedValueOnce({});
+    const result = await queueList();
+    expect(result).toEqual([]);
+  });
 });
 
 describe("queueEnqueue", () => {
