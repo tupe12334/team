@@ -749,6 +749,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enqueue_zero_priority_is_accepted() {
+        // priority=0 is explicitly provided and is the minimum valid value.
+        // This differs from None (which also defaults to 0) — Some(0) exercises the
+        // `req.priority.is_some_and(|p| p < 0)` guard boundary directly.
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "1".into(),
+            })) }),
+            agent: None,
+            priority: Some(0),
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => assert_eq!(t.priority, 0),
+            enqueue_response::Result::Error(e) => panic!("expected ok for priority=0, got: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_task_empty_agent_string_sets_agent_without_validation() {
+        // agent="" skips the is_known check (the guard is `if !agent.is_empty() && ...`)
+        // and stores Some("") on the task, which execute_agent treats as "no agent".
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "55").await;
+
+        // First set a non-empty agent so we can verify "" clears it
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("review".into()),
+            priority: None,
+        });
+        svc.update_task(req).await.unwrap();
+
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("".into()),
+            priority: None,
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => {
+                assert_eq!(t.agent, Some("".into()), "empty agent string must be stored as Some(\"\")");
+            }
+            update_task_response::Result::Error(e) => panic!("expected ok for empty agent, got: {e}"),
+        }
+    }
+
+    #[tokio::test]
     async fn list_queue_returns_all_tasks() {
         let state = make_state();
         let svc = QueueServiceImpl::new(state);

@@ -231,6 +231,32 @@ mod tests {
         }
     }
 
+    /// fragment-only stripping: when there is no '?' the split('?') pass-through
+    /// leaves the '#...' suffix intact; split('#') must strip it.
+    #[tokio::test]
+    async fn github_url_strips_fragment_without_query() {
+        assert_eq!(
+            resolve("https://github.com/acme/my-repo/issues/99#L42").await.unwrap(),
+            github("acme", "my-repo", "99")
+        );
+    }
+
+    #[tokio::test]
+    async fn jira_url_strips_fragment_without_query() {
+        assert_eq!(
+            resolve("https://acme.atlassian.net/browse/PROJ-42#comment-123").await.unwrap(),
+            jira("PROJ-42")
+        );
+    }
+
+    #[tokio::test]
+    async fn centy_url_strips_fragment_without_query() {
+        assert_eq!(
+            resolve("https://app.centy.io/acme/proj/issues/5#note-7").await.unwrap(),
+            centy("acme", "proj", "5")
+        );
+    }
+
     #[tokio::test]
     async fn github_non_integer_number_returns_err() {
         assert!(resolve("https://github.com/acme/my-repo/issues/not-a-number").await.is_err());
