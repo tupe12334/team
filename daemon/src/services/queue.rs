@@ -953,6 +953,74 @@ mod tests {
         }
     }
 
+    /// Exercises the `!enabled_agents.iter().any(|a| a == agent_name)` = false arm in the
+    /// enqueue enabled_agents guard — the only path where all of:
+    ///   (1) agent is Some, (2) not empty, (3) enabled list is non-empty, (4) agent IS in list
+    /// are all evaluated and (4) is false → the overall condition is false → task is accepted.
+    ///
+    /// All prior tests either short-circuit at (3) (enabled list empty, via make_state()) or
+    /// reach the reject arm where (4) is true (agent NOT in list).  Neither covers (4) = false.
+    #[tokio::test]
+    async fn enqueue_agent_in_enabled_list_is_accepted() {
+        let id = uuid::Uuid::new_v4();
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: format!("/tmp/enqueue-agent-allowed-{id}.toml"),
+            queue_path: format!("/tmp/enqueue-agent-allowed-{id}.json"),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["review".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state);
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "1".into(),
+            })) }),
+            agent: Some("review".into()), // in enabled list → !any(...) = false → accept
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert_eq!(t.agent, Some("review".into()), "agent in enabled list must be accepted");
+            }
+            enqueue_response::Result::Error(e) => {
+                panic!("agent in enabled list must not be rejected, got: {e}");
+            }
+        }
+    }
+
+    /// Mirrors enqueue_agent_in_enabled_list_is_accepted for update_task: exercises the
+    /// `!any(|a| a == agent)` = false arm when enabled_agents is non-empty and the agent
+    /// IS in the list.  All prior update_task tests either use an empty enabled list
+    /// (short-circuit at guard 3) or a non-matching agent (reject at guard 4 = true).
+    #[tokio::test]
+    async fn update_task_agent_in_enabled_list_is_accepted() {
+        let id = uuid::Uuid::new_v4();
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: format!("/tmp/update-agent-allowed-{id}.toml"),
+            queue_path: format!("/tmp/update-agent-allowed-{id}.json"),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["review".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "99").await;
+        let req = Request::new(UpdateTaskRequest {
+            task_id,
+            agent: Some("review".into()), // in enabled list → !any(...) = false → accept
+            priority: None,
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => {
+                assert_eq!(t.agent, Some("review".into()), "agent in enabled list must be accepted");
+            }
+            update_task_response::Result::Error(e) => {
+                panic!("agent in enabled list must not be rejected by update_task, got: {e}");
+            }
+        }
+    }
+
     #[tokio::test]
     async fn list_queue_returns_all_tasks() {
         let state = make_state();
