@@ -466,6 +466,21 @@ mod tests {
     }
 
     #[test]
+    fn load_queue_with_malformed_json_returns_empty_queue() {
+        // load_queue calls `serde_json::from_str(...).unwrap_or_default()` — if the queue
+        // file contains invalid JSON the daemon must not panic; it silently starts with an
+        // empty queue so dispatch can still proceed.
+        let dir = format!("/tmp/team-state-malformed-queue-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        let queue_path = format!("{dir}/queue.json");
+        std::fs::write(&queue_path, "this is not valid json [{{").unwrap();
+        let state = AppState::new(config_path);
+        assert!(state.queue.is_empty(), "malformed queue JSON must result in an empty queue, not a panic");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn running_tasks_are_re_queued_on_load() {
         // Create a unique temp dir so config path and queue path are both isolated.
         let dir = format!("/tmp/team-state-test-{}", uuid::Uuid::new_v4());
