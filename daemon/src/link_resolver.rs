@@ -275,6 +275,14 @@ mod tests {
         assert!(resolve("").await.is_err());
     }
 
+    /// Jira URL where /browse/ is present but no issue key follows →
+    /// id.is_empty() guard returns None → try_jira returns None → Err.
+    /// Mirrors the existing github_missing_number_returns_err test.
+    #[tokio::test]
+    async fn jira_missing_issue_key_returns_err() {
+        assert!(resolve("https://acme.atlassian.net/browse/").await.is_err());
+    }
+
     /// Centy URL where the path segment after org/project is not "issues" —
     /// exercises the `kind != "issues"` guard in try_centy → Ok(None) → Err.
     #[tokio::test]
