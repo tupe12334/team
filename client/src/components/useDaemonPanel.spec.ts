@@ -40,6 +40,23 @@ describe("useDaemonPanel", () => {
     expect(result.current.error).toBe("daemon crashed");
   });
 
+  it("returns raw text when response JSON has no error field (parseError branch 2)", async () => {
+    // parseError has three branches:
+    //   1. JSON.parse succeeds AND typeof parsed.error === "string" → return parsed.error (tested above)
+    //   2. JSON.parse succeeds BUT parsed.error is not a string → return raw text   ← this test
+    //   3. JSON.parse throws → return raw text
+    // Branch 2 fires when the API returns valid JSON without a top-level "error" string —
+    // the user sees the raw JSON rather than a formatted message, which is the correct fallback.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, text: () => Promise.resolve('{"status":"daemon unavailable"}'),
+    }));
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.info).toBeNull();
+    // No .error string field → parseError returns the raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"daemon unavailable"}');
+  });
+
   it("clears info when daemon becomes unreachable after initial load", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
