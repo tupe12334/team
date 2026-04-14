@@ -27,7 +27,8 @@ use state::AppState;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let port = std::env::var("DAEMON_PORT").expect("DAEMON_PORT must be set");
-    let addr = format!("[::1]:{port}").parse()?;
+    let host = std::env::var("DAEMON_HOST").unwrap_or_else(|_| "[::1]".to_string());
+    let addr = format!("{host}:{port}").parse()?;
 
     let pid_path = format!("/tmp/team-daemon-{port}.pid");
 

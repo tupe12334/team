@@ -1,0 +1,29 @@
+services:
+  daemon:
+    build:
+      context: .
+      dockerfile: daemon/Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      DAEMON_PORT: "50051"
+      DAEMON_HOST: "[::]"
+    volumes:
+      - daemon-data:/root/.config/team
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # Connects to the daemon service over Docker's internal network
+      DAEMON_ADDR: "daemon:50051"
+    depends_on:
+      - daemon
+    restart: unless-stopped
+
+volumes:
+  daemon-data:

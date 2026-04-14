@@ -1,0 +1,8 @@
+node_modules/
+**/node_modules/
+**/target/
+.git/
+**/.next/
+bin/
+client/src/gen/
+.env

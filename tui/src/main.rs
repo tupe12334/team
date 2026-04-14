@@ -13,7 +13,8 @@ async fn main() -> Result<()> {
     let _ = dotenvy::from_path("../.env");
 
     let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
-    let addr = format!("http://[::1]:{port}");
+    let host = std::env::var("DAEMON_HOST").unwrap_or_else(|_| "[::1]".to_string());
+    let addr = format!("http://{host}:{port}");
 
     let mut app = App::new(addr)?;
     app.run().await

@@ -1,0 +1,42 @@
+# ─── Build Stage ──────────────────────────────────────────────────────────────
+# Use Alpine + musl for a fully static binary with no glibc version concerns.
+FROM rust:1-alpine AS builder
+
+RUN apk add --no-cache musl-dev protobuf-dev
+
+WORKDIR /build
+
+# Copy proto files (required by daemon/build.rs)
+COPY proto/ ./proto/
+
+# Copy manifests first to cache cargo dependency downloads
+COPY daemon/Cargo.toml daemon/Cargo.lock ./daemon/
+COPY daemon/build.rs ./daemon/
+
+# Build deps with a stub main — this layer is cached as long as Cargo.toml/lock don't change
+RUN mkdir -p daemon/src && echo 'fn main() {}' > daemon/src/main.rs
+WORKDIR /build/daemon
+RUN cargo build --release
+# Remove stub artifact so cargo rebuilds the binary from real source
+RUN rm -f target/release/deps/daemon* target/release/daemon
+
+# Build with real source
+COPY daemon/src/ ./src/
+RUN cargo build --release
+
+# ─── Runtime Stage ────────────────────────────────────────────────────────────
+FROM alpine:3
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /build/daemon/target/release/daemon /usr/local/bin/daemon
+
+# DAEMON_HOST=[::] binds to all interfaces so other containers can reach the daemon.
+# Override to [::1] if you want loopback-only outside Docker.
+ENV DAEMON_PORT=50051
+ENV DAEMON_HOST=[::]
+ENV HOME=/root
+
+EXPOSE 50051
+
+CMD ["daemon"]

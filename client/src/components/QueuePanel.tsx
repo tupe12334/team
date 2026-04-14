@@ -59,7 +59,7 @@ function EnqueueForm({ panel }: { panel: ReturnType<typeof useQueuePanel> }) {
           <option className="queue-panel__option" key={a.name} value={a.name} title={a.description}>{a.name}</option>
         ))}
       </select>
-      <input type="number" value={priority || ""} onChange={(e) => { setPriority(Number(e.target.value) || 0); }} placeholder="priority" className={`${inputCls} w-24`} min={0} />
+      <input type="number" value={priority || ""} onChange={(e) => { setPriority(Math.trunc(Number(e.target.value)) || 0); }} placeholder="priority" className={`${inputCls} w-24`} min={0} step={1} />
       <button type="submit" disabled={submitting} className="queue-panel__submit font-mono text-xs px-4 py-2 rounded bg-orange-500/10 border border-orange-500/40 text-orange-400 hover:bg-orange-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
         {submitting ? "Adding…" : "+ Enqueue"}
       </button>
