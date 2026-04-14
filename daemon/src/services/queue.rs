@@ -145,6 +145,8 @@ impl QueueService for QueueServiceImpl {
     ) -> Result<Response<UpdateTaskResponse>, Status> {
         let req = request.into_inner();
         let mut state = self.state.lock().await;
+        // Extract enabled_agents before taking the mutable task borrow.
+        let enabled_agents = state.config.enabled_agents.clone();
         let task = state
             .queue
             .iter_mut()
@@ -156,6 +158,16 @@ impl QueueService for QueueServiceImpl {
                 return Ok(Response::new(UpdateTaskResponse {
                     result: Some(update_task_response::Result::Error(
                         format!("unknown agent '{agent}'; use GetAvailableAgents to list valid agents"),
+                    )),
+                }));
+            }
+            if !agent.is_empty()
+                && !enabled_agents.is_empty()
+                && !enabled_agents.iter().any(|a| a == &agent)
+            {
+                return Ok(Response::new(UpdateTaskResponse {
+                    result: Some(update_task_response::Result::Error(
+                        format!("agent '{agent}' is not in the enabled agents list"),
                     )),
                 }));
             }
@@ -441,6 +453,33 @@ mod tests {
         let res = svc.update_task(req).await.unwrap().into_inner();
         match res.result.unwrap() {
             update_task_response::Result::Error(msg) => assert!(msg.contains("priority must be >= 0")),
+            update_task_response::Result::Task(_) => panic!("expected error, got task"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_task_disabled_agent_is_rejected() {
+        // update_task must honour enabled_agents just like enqueue does.
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/queue-svc-disabled-update-test.toml".into(),
+            queue_path: "/tmp/queue-svc-disabled-update-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["qa".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "10").await;
+        // "review" is a known agent but not in enabled_agents
+        let req = Request::new(UpdateTaskRequest {
+            task_id,
+            agent: Some("review".into()),
+            priority: None,
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Error(msg) => {
+                assert!(msg.contains("not in the enabled agents list"), "got: {msg}");
+            }
             update_task_response::Result::Task(_) => panic!("expected error, got task"),
         }
     }

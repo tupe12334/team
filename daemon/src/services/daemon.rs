@@ -98,8 +98,10 @@ impl DaemonService for DaemonServiceImpl {
         let mut seen = std::collections::HashSet::new();
         new_config.enabled_agents.retain(|a| seen.insert(a.clone()));
         let mut state = self.state.lock().await;
+        let old_config = state.config.clone();
         state.config = new_config.clone();
         if let Err(e) = state.save_config() {
+            state.config = old_config; // roll back so memory and disk stay consistent
             return Err(Status::internal(format!("Failed to save config: {e}")));
         }
         Ok(Response::new(UpdateConfigResponse {
@@ -227,6 +229,29 @@ mod tests {
             }
             update_config_response::Result::Ok(_) => panic!("expected error but got ok"),
         }
+    }
+
+    #[tokio::test]
+    async fn update_config_rolls_back_on_save_failure() {
+        // Use a path that cannot be written to force save_config to fail.
+        let state = Arc::new(Mutex::new(crate::state::AppState {
+            config_path: "/nonexistent-dir/cannot-write.toml".into(),
+            queue_path: "/tmp/rollback-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 2, log_level: "info".into(), enabled_agents: vec![] },
+        }));
+        let svc = DaemonServiceImpl::new(state.clone());
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig { workers_count: 8, log_level: "debug".into(), enabled_agents: vec![] }),
+        });
+        let res = svc.update_config(req).await;
+        // The call must return a gRPC error (Status::internal) because save failed.
+        assert!(res.is_err(), "expected internal error when save_config fails");
+        // In-memory config must be rolled back to original values.
+        let locked = state.lock().await;
+        assert_eq!(locked.config.workers_count, 2, "rolled back workers_count");
+        assert_eq!(locked.config.log_level, "info", "rolled back log_level");
     }
 
     #[tokio::test]

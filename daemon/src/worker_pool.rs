@@ -68,7 +68,9 @@ async fn pick_next_task(
         }),
     });
 
-    let _ = s.save_queue();
+    if let Err(e) = s.save_queue() {
+        eprintln!("[worker_pool] save_queue failed after marking task {task_id} RUNNING: {e}");
+    }
     Some((task_id, issue_ref, worker_id, agent))
 }
 
@@ -190,7 +192,9 @@ async fn finish_task(
     }
 
     s.workers.retain(|w| w.worker_id != worker_id);
-    let _ = s.save_queue();
+    if let Err(e) = s.save_queue() {
+        eprintln!("[worker_pool] save_queue failed after finishing task {task_id}: {e}");
+    }
 }
 
 fn now_seconds() -> i64 {
