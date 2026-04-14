@@ -185,28 +185,49 @@ async fn finish_task(
     worker_id: &str,
     success: bool,
 ) {
-    let mut s = state.lock().await;
-    let final_status = if success {
-        TaskStatus::Completed as i32
-    } else {
-        TaskStatus::Failed as i32
-    };
-
-    if let Some(task) = s.queue.iter_mut().find(|t| t.id == task_id) {
-        task.status = final_status;
-        task.updated_at = Some(prost_types::Timestamp {
-            seconds: now_seconds(),
-            nanos: 0,
-        });
-    } else {
-        eprintln!(
-            "[worker_pool] finish_task: task {task_id} not found in queue (removed while running?); worker slot freed"
-        );
+    // Update in-memory state first, then release the lock so the daemon stays
+    // responsive while we retry the persist below.
+    {
+        let mut s = state.lock().await;
+        let final_status = if success {
+            TaskStatus::Completed as i32
+        } else {
+            TaskStatus::Failed as i32
+        };
+        if let Some(task) = s.queue.iter_mut().find(|t| t.id == task_id) {
+            task.status = final_status;
+            task.updated_at = Some(prost_types::Timestamp {
+                seconds: now_seconds(),
+                nanos: 0,
+            });
+        } else {
+            eprintln!(
+                "[worker_pool] finish_task: task {task_id} not found in queue (removed while running?); worker slot freed"
+            );
+        }
+        s.workers.retain(|w| w.worker_id != worker_id);
     }
 
-    s.workers.retain(|w| w.worker_id != worker_id);
-    if let Err(e) = s.save_queue() {
-        eprintln!("[worker_pool] save_queue failed after finishing task {task_id}: {e}");
+    // Retry persist with short exponential backoff. Releasing the lock between
+    // attempts keeps the daemon responsive. If all attempts fail, the in-memory
+    // state is still correct; the risk is that a crash before another mutation
+    // triggers a successful save would cause the task to re-execute on restart.
+    for delay_ms in [0u64, 10, 30, 100] {
+        if delay_ms > 0 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+        }
+        let mut s = state.lock().await;
+        match s.save_queue() {
+            Ok(()) => return,
+            Err(e) => eprintln!(
+                "[worker_pool] save_queue failed after finishing task {task_id}: {e}{}",
+                if delay_ms == 100 {
+                    "; giving up — task may re-execute on daemon restart"
+                } else {
+                    "; retrying"
+                }
+            ),
+        }
     }
 }
 
@@ -447,6 +468,35 @@ mod tests {
         let s = state.lock().await;
         let task = s.queue.iter().find(|t| t.id == "t1").expect("task must exist");
         assert_eq!(task.status, TaskStatus::Failed as i32);
+    }
+
+    #[tokio::test]
+    async fn finish_task_handles_save_failure_gracefully() {
+        // Even when save_queue always fails, the in-memory task status must be
+        // set to COMPLETED/FAILED and the worker slot must be freed so capacity
+        // is not permanently lost.
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/finish-task-fail-test.toml".into(),
+            queue_path: "/nonexistent-dir/queue.json".into(),
+            queue: vec![{
+                let mut t = queued_task("t1", 0);
+                t.status = TaskStatus::Running as i32;
+                t
+            }],
+            workers: vec![WorkerInfo {
+                worker_id: "w1".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "t1".into(),
+                current_agent: String::new(),
+                task_started_at: None,
+            }],
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec![] },
+        }));
+        finish_task(&state, "t1", "w1", true).await;
+        let s = state.lock().await;
+        let task = s.queue.iter().find(|t| t.id == "t1").expect("task must exist");
+        assert_eq!(task.status, TaskStatus::Completed as i32, "task must be COMPLETED in memory");
+        assert!(s.workers.is_empty(), "worker slot must be freed even when save fails");
     }
 
     #[tokio::test]

@@ -5,7 +5,7 @@ vi.mock("@/lib/grpc/client", () => {
   return { ApiError, daemonReloadConfig: vi.fn() };
 });
 
-import { daemonReloadConfig } from "@/lib/grpc/client";
+import { ApiError, daemonReloadConfig } from "@/lib/grpc/client";
 import { POST } from "./route";
 
 const mockReload = vi.mocked(daemonReloadConfig);
@@ -32,5 +32,13 @@ describe("POST /api/daemon/reload", () => {
     mockReload.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
     const res = await POST();
     expect(res.status).toBe(503);
+  });
+
+  it("returns 400 when daemon returns an application error (malformed config)", async () => {
+    mockReload.mockRejectedValueOnce(new ApiError("malformed config at '/path/config.toml': invalid TOML"));
+    const res = await POST();
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("malformed config");
   });
 });
