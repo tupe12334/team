@@ -240,6 +240,29 @@ mod tests {
     }
 
     #[test]
+    fn is_present_true_for_running_task() {
+        // A task in RUNNING state must block re-queuing (daemon restart could duplicate it).
+        let mut task = centy_task("acme", "backend", "7");
+        task.status = crate::proto::TaskStatus::Running as i32;
+        assert!(is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_true_for_completed_task() {
+        // Completed tasks are retained for 7 days — must block re-queuing within that window.
+        let mut task = centy_task("acme", "backend", "7");
+        task.status = crate::proto::TaskStatus::Completed as i32;
+        assert!(is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn is_present_true_for_failed_task() {
+        let mut task = centy_task("acme", "backend", "7");
+        task.status = crate::proto::TaskStatus::Failed as i32;
+        assert!(is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
     fn extract_typical_path() {
         assert_eq!(
             extract_org_repo("/home/user/dev/github/acme/my-repo"),
