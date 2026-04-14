@@ -257,6 +257,16 @@ mod tests {
         assert!(!is_centy_issue_present(&queue, &centy_issue("acme", "backend", "7")));
     }
 
+    /// Exercises the outer `Some(IssueRef { ... })` guard in the matches! pattern when
+    /// `t.issue_ref` is `None` — a different failure point to the github test which has
+    /// `Some(IssueRef { r#ref: Some(Github(...)) })` failing at the inner ref variant.
+    #[test]
+    fn is_present_false_for_task_with_no_issue_ref() {
+        let mut task = centy_task("acme", "backend", "7");
+        task.issue_ref = None;
+        assert!(!is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
+    }
+
     #[test]
     fn is_present_false_for_empty_queue() {
         assert!(!is_centy_issue_present(&[], &centy_issue("acme", "backend", "7")));
