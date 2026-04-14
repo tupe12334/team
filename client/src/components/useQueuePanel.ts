@@ -30,12 +30,8 @@ function buildIssueRef(provider: IssueProvider, org: string, repo: string, numbe
   return { link: { url: url.trim() } };
 }
 
-async function loadAgents(): Promise<AgentInfo[]> {
-  const r = await fetch("/api/agents");
-  if (!r.ok) throw new Error(parseError(await r.text()));
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return r.json();
-}
+const loadAgents = (): Promise<AgentInfo[]> =>
+  fetch("/api/agents").then((r) => r.ok ? r.json() : r.text().then((t) => Promise.reject(new ApiError(parseError(t)))));
 
 export function useQueuePanel() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -62,9 +58,7 @@ export function useQueuePanel() {
   }, []);
 
   useEffect(() => {
-    void loadAgents().then(setAgents).catch((e: unknown) => {
-      setError(e instanceof Error ? e.message : "failed to load agents");
-    });
+    void loadAgents().then(setAgents).catch((e: unknown) => { setError(e instanceof Error ? e.message : "failed to load agents"); });
     void fetchTasks();
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     intervalRef.current = setInterval(fetchTasks, 5000);
