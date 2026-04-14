@@ -266,6 +266,38 @@ describe("useQueuePanel", () => {
     expect(result.current.error).toBe("failed to load agents");
   });
 
+  it("loadAgents extracts error from JSON body when agents endpoint fails (parseError branch 1)", async () => {
+    // loadAgents: r.ok false → r.text() → parseError branch 1 (JSON with .error string)
+    // → ApiError(message) → caught in useEffect catch → setError(e.message)
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents")
+        return Promise.resolve({ ok: false, text: () => Promise.resolve('{"error":"agents service disabled"}') });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.agents).toEqual([]);
+    // parseError extracts the message — user sees "agents service disabled" not raw JSON
+    expect(result.current.error).toBe("agents service disabled");
+  });
+
+  it("loadAgents returns raw JSON when agents endpoint fails with JSON that has no error field (parseError branch 2)", async () => {
+    // loadAgents: r.ok false → r.text() → parseError branch 2 (JSON.parse succeeds but
+    // parsed.error is not a string) → raw text returned → ApiError(rawText) → caught → setError
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents")
+        return Promise.resolve({ ok: false, text: () => Promise.resolve('{"status":"agents degraded"}') });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.agents).toEqual([]);
+    // No .error field → parseError returns raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"agents degraded"}');
+  });
+
   it("handleEnqueue sets error via String() when fetch throws a non-Error value", async () => {
     // exercises the `e instanceof Error ? e.message : String(e)` catch branch
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -389,6 +421,43 @@ describe("useQueuePanel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.tasks).toEqual([]);
     expect(result.current.error).toBe("queue connection refused");
+  });
+
+  it("handleDelete returns raw JSON when DELETE fails with JSON that has no error field (parseError branch 2)", async () => {
+    // handleDelete !res.ok path: parseError branch 2 — JSON.parse succeeds but
+    // parsed.error is not a string → raw text returned as error message.
+    // Existing "surfaces error" test covers branch 1 (JSON with .error).
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "DELETE")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      return Promise.resolve({ ok: false, text: () => Promise.resolve('{"status":"delete rejected"}') });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleDelete("t1"); });
+    // No .error field → parseError returns raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"delete rejected"}');
+    expect(result.current.deletingId).toBeNull();
+  });
+
+  it("handleDelete returns plain text when DELETE fails with non-JSON body (parseError branch 3)", async () => {
+    // handleDelete !res.ok path: parseError branch 3 — JSON.parse throws → raw text returned.
+    // Complements the branch 1 test ("surfaces error") and the branch 2 test above.
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "DELETE")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      return Promise.resolve({ ok: false, text: () => Promise.resolve("delete forbidden") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleDelete("t1"); });
+    // Plain text (not JSON) → parseError returns it unchanged
+    expect(result.current.error).toBe("delete forbidden");
+    expect(result.current.deletingId).toBeNull();
   });
 
   it("handleDelete sets error via String() when fetch rejects with a non-Error value", async () => {
