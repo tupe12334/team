@@ -257,3 +257,48 @@ fn format_issue_ref(issue_ref: &Option<crate::client::proto::IssueRef>) -> Strin
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, IssueRef, JiraIssueRef};
+
+    fn github(org: &str, repo: &str, number: &str) -> Option<IssueRef> {
+        Some(IssueRef { r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
+            organization: org.into(), repository: repo.into(), number: number.into(),
+        })) })
+    }
+    fn centy(org: &str, repo: &str, number: &str) -> Option<IssueRef> {
+        Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
+            organization: org.into(), repository: repo.into(), number: number.into(),
+        })) })
+    }
+    fn jira(id: &str) -> Option<IssueRef> {
+        Some(IssueRef { r#ref: Some(issue_ref::Ref::Jira(JiraIssueRef { id: id.into() })) })
+    }
+
+    #[test]
+    fn format_none_returns_dash() {
+        assert_eq!(format_issue_ref(&None), "-");
+    }
+
+    #[test]
+    fn format_empty_inner_ref_returns_dash() {
+        assert_eq!(format_issue_ref(&Some(IssueRef { r#ref: None })), "-");
+    }
+
+    #[test]
+    fn format_github() {
+        assert_eq!(format_issue_ref(&github("acme", "app", "42")), "github:acme/app#42");
+    }
+
+    #[test]
+    fn format_centy() {
+        assert_eq!(format_issue_ref(&centy("acme", "proj", "7")), "centy:acme/proj#7");
+    }
+
+    #[test]
+    fn format_jira() {
+        assert_eq!(format_issue_ref(&jira("PROJ-123")), "jira:PROJ-123");
+    }
+}
