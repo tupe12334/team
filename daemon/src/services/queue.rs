@@ -815,6 +815,39 @@ mod tests {
         }
     }
 
+    /// When `agent = Some("")` and `enabled_agents` is non-empty, the `!agent.is_empty()`
+    /// guard short-circuits the enabled_agents check in update_task — just as in enqueue.
+    /// `update_task_empty_agent_string_sets_agent_without_validation` uses `make_state()`
+    /// (enabled_agents empty), so there the second `&&` short-circuits instead.  This test
+    /// isolates the first `&&` specifically: non-empty enabled list + empty agent string.
+    #[tokio::test]
+    async fn update_task_empty_agent_bypasses_enabled_agents_check() {
+        let id = uuid::Uuid::new_v4();
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: format!("/tmp/update-empty-agent-{id}.toml"),
+            queue_path: format!("/tmp/update-empty-agent-{id}.json"),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["qa".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "77").await;
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("".into()), // empty → !is_empty() = false → enabled_agents check skipped
+            priority: None,
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => {
+                assert_eq!(t.agent, Some("".into()), "empty agent must be stored even when enabled_agents is configured");
+            }
+            update_task_response::Result::Error(e) => {
+                panic!("empty agent must bypass enabled_agents check, got: {e}");
+            }
+        }
+    }
+
     /// When enabled_agents is configured and the request has no agent (agent=None),
     /// the `if let Some(ref agent_name) = task.agent` guard short-circuits immediately
     /// and the task is accepted — not setting an agent is always allowed regardless of
