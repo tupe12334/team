@@ -30,7 +30,13 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
             return;
         }
     };
+    enqueue_new_issues(state, issues).await;
+}
 
+/// Enqueues any issues from `issues` that are not already present in the queue.
+/// If the queue cannot be persisted after appending new tasks, all newly-added
+/// tasks are rolled back so in-memory state stays consistent with disk.
+async fn enqueue_new_issues(state: &Arc<Mutex<AppState>>, issues: Vec<CentyIssue>) {
     if issues.is_empty() {
         return;
     }
@@ -44,8 +50,7 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
         // COMPLETED/FAILED tasks are retained for 7 days (see save_queue pruning),
         // which prevents re-dispatch of recently finished work.  Once pruned, a
         // still-"in queue" centy issue will be picked up again on the next poll.
-        let already_present = is_centy_issue_present(&s.queue, &issue);
-        if already_present {
+        if is_centy_issue_present(&s.queue, &issue) {
             continue;
         }
 
@@ -179,7 +184,7 @@ fn extract_org_repo(path: &str) -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::{CentyIssueRef, GitHubIssueRef};
+    use crate::proto::{CentyIssueRef, DaemonConfig, GitHubIssueRef};
 
     fn centy_task(org: &str, repo: &str, number: &str) -> Task {
         Task {
@@ -369,5 +374,64 @@ mod tests {
             extract_org_repo("noslash"),
             ("unknown".into(), "unknown".into())
         );
+    }
+
+    fn make_state_with_path(queue_path: &str) -> Arc<Mutex<AppState>> {
+        Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/test.toml".into(),
+            queue_path: queue_path.into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig {
+                workers_count: 1,
+                log_level: "info".into(),
+                enabled_agents: vec![],
+            },
+        }))
+    }
+
+    #[tokio::test]
+    async fn enqueue_new_issues_adds_task_to_queue() {
+        let path = format!("/tmp/test-centy-poller-{}.json", uuid::Uuid::new_v4());
+        let state = make_state_with_path(&path);
+        let issues = vec![centy_issue("acme", "backend", "42")];
+        enqueue_new_issues(&state, issues).await;
+        let s = state.lock().await;
+        assert_eq!(s.queue.len(), 1);
+        let task = &s.queue[0];
+        match task.issue_ref.as_ref().and_then(|r| r.r#ref.as_ref()) {
+            Some(issue_ref::Ref::Centy(c)) => {
+                assert_eq!(c.organization, "acme");
+                assert_eq!(c.repository, "backend");
+                assert_eq!(c.number, "42");
+            }
+            other => panic!("expected Centy ref, got {other:?}"),
+        }
+        assert_eq!(task.status, TaskStatus::Queued as i32);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn enqueue_new_issues_skips_already_present() {
+        let path = format!("/tmp/test-centy-poller-{}.json", uuid::Uuid::new_v4());
+        let state = make_state_with_path(&path);
+        // Pre-populate the queue with the same issue.
+        state.lock().await.queue.push(centy_task("acme", "backend", "42"));
+        let issues = vec![centy_issue("acme", "backend", "42")];
+        enqueue_new_issues(&state, issues).await;
+        // Queue length must stay at 1 — no duplicate added.
+        assert_eq!(state.lock().await.queue.len(), 1);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn enqueue_new_issues_rolls_back_on_save_failure() {
+        // /dev/null is a character device, so create_dir_all("/dev/null") fails,
+        // which makes save_queue return an Err — triggering the rollback branch.
+        let state = make_state_with_path("/dev/null/queue.json");
+        let issues = vec![centy_issue("acme", "backend", "99")];
+        enqueue_new_issues(&state, issues).await;
+        // The task must be rolled back since persistence failed.
+        assert_eq!(state.lock().await.queue.len(), 0, "queue must be rolled back when save fails");
     }
 }
