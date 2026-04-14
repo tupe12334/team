@@ -28,6 +28,15 @@ describe("POST /api/daemon/shutdown", () => {
     expect(body.error).toBe("process gone");
   });
 
+  it("returns 400 when gRPC call returns an application error (ApiError)", async () => {
+    const { ApiError } = await import("@/lib/grpc/client");
+    mockShutdown.mockRejectedValueOnce(new ApiError("shutdown error"));
+    const res = await POST();
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("shutdown error");
+  });
+
   it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
     mockShutdown.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
     const res = await POST();

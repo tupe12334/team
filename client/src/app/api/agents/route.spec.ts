@@ -37,6 +37,15 @@ describe("GET /api/agents", () => {
     expect(body.error).toBe("unknown failure");
   });
 
+  it("returns 400 when gRPC call returns an application error (ApiError)", async () => {
+    const { ApiError } = await import("@/lib/grpc/client");
+    mockGetAgents.mockRejectedValueOnce(new ApiError("agents service error"));
+    const res = await GET();
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("agents service error");
+  });
+
   it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
     mockGetAgents.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
     const res = await GET();
