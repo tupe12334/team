@@ -7,6 +7,7 @@ mod proto {
 }
 
 mod centy_poller;
+mod centy_resolver;
 mod gstack_agents;
 mod issue_ref_json;
 mod link_resolver;

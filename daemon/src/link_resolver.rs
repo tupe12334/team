@@ -1,3 +1,4 @@
+use crate::centy_resolver;
 use crate::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, IssueRef, JiraIssueRef};
 
 /// Resolve a raw link URL to a concrete IssueRef.
@@ -87,8 +88,8 @@ async fn try_centy(url: &str) -> Result<Option<IssueRef>, String> {
     let id = number_raw.split('?').next().unwrap_or(number_raw);
     let id = id.split('#').next().unwrap_or(id);
 
-    let number = if is_uuid(id) {
-        resolve_centy_uuid(id).await?
+    let number = if centy_resolver::is_uuid(id) {
+        centy_resolver::resolve_centy_uuid(id).await?
     } else {
         id.to_string()
     };
@@ -100,50 +101,6 @@ async fn try_centy(url: &str) -> Result<Option<IssueRef>, String> {
             number,
         })),
     }))
-}
-
-/// Returns true if `s` matches the canonical UUID format: 8-4-4-4-12 lowercase hex chars.
-fn is_uuid(s: &str) -> bool {
-    let parts: Vec<&str> = s.split('-').collect();
-    if parts.len() != 5 {
-        return false;
-    }
-    let expected_lengths = [8usize, 4, 4, 4, 12];
-    parts
-        .iter()
-        .zip(expected_lengths.iter())
-        .all(|(p, &len)| p.len() == len && p.chars().all(|c| c.is_ascii_hexdigit()))
-}
-
-/// Calls `centy get issue <uuid> --global --json` and extracts the integer
-/// display number, which is what `worktree open centy:<n>` requires.
-async fn resolve_centy_uuid(uuid: &str) -> Result<String, String> {
-    let output = tokio::process::Command::new("centy")
-        .args(["get", "issue", uuid, "--global", "--json"])
-        .output()
-        .await
-        .map_err(|e| format!("failed to spawn centy to resolve UUID {uuid}: {e}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    let json_start = match stdout.find('{') {
-        Some(pos) => pos,
-        None => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!(
-                "centy returned no JSON when resolving UUID {uuid}: {stderr}"
-            ));
-        }
-    };
-
-    let response: serde_json::Value = serde_json::from_str(&stdout[json_start..])
-        .map_err(|e| format!("failed to parse centy JSON for UUID {uuid}: {e}"))?;
-
-    // Response shape: SearchItemsResponse { items: [{ item: { metadata: { displayNumber: N } } }] }
-    response["items"][0]["item"]["metadata"]["displayNumber"]
-        .as_i64()
-        .map(|n| n.to_string())
-        .ok_or_else(|| format!("UUID {uuid} not found in any tracked centy project"))
 }
 
 #[cfg(test)]
@@ -255,8 +212,6 @@ mod tests {
     }
 
     /// UUID URLs must trigger centy CLI resolution, not fall through to "unknown provider".
-    /// In a unit-test environment the centy CLI may not be present; the error must come
-    /// from the resolution attempt, not from the provider-matching logic.
     #[tokio::test]
     async fn centy_uuid_url_attempts_resolution() {
         let result =
@@ -280,24 +235,5 @@ mod tests {
     #[tokio::test]
     async fn empty_url_returns_err() {
         assert!(resolve("").await.is_err());
-    }
-
-    #[test]
-    fn is_uuid_valid() {
-        assert!(is_uuid("6f4853a9-3d82-4013-b909-c2d637f44541"));
-        assert!(is_uuid("00000000-0000-0000-0000-000000000000"));
-    }
-
-    #[test]
-    fn is_uuid_rejects_plain_integers() {
-        assert!(!is_uuid("42"));
-        assert!(!is_uuid("5"));
-    }
-
-    #[test]
-    fn is_uuid_rejects_malformed() {
-        assert!(!is_uuid("not-a-uuid"));
-        assert!(!is_uuid("6f4853a9-3d82-4013-b909")); // too short
-        assert!(!is_uuid("6f4853a9-3d82-4013-b909-c2d637f44541-extra")); // too long
     }
 }

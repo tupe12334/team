@@ -87,15 +87,34 @@ async fn run_task(
 ///
 /// Supported mappings:
 /// - GitHub `org/repo#42`  — `worktree open` accepts `owner/repo#number`
-/// - Centy  `centy:<id>`   — `worktree open` accepts `centy:<number>`
+/// - Centy  `centy:<n>`    — `worktree open` accepts `centy:<display_number>`
 /// - Jira   — not directly supported by `worktree open`; returns None
-fn to_worktree_ref(r: &IssueRef) -> Option<String> {
+///
+/// Centy refs whose `number` field contains a UUID (stored by older code or via direct
+/// API enqueue) are resolved to the integer display number via the centy CLI before
+/// building the ref string.  This is the definitive last-resort fix: it fires regardless
+/// of how the UUID reached the queue (URL link, direct CentyIssueRef, persisted state).
+async fn to_worktree_ref(r: &IssueRef) -> Option<String> {
     match r.r#ref.as_ref()? {
         crate::proto::issue_ref::Ref::Github(g) => {
             Some(format!("{}/{}#{}", g.organization, g.repository, g.number))
         }
         crate::proto::issue_ref::Ref::Centy(c) => {
-            Some(format!("centy:{}", c.number))
+            let number = if crate::centy_resolver::is_uuid(&c.number) {
+                match crate::centy_resolver::resolve_centy_uuid(&c.number).await {
+                    Ok(n) => n,
+                    Err(e) => {
+                        eprintln!(
+                            "[worker_pool] failed to resolve Centy UUID {}: {e}",
+                            c.number
+                        );
+                        return None;
+                    }
+                }
+            } else {
+                c.number.clone()
+            };
+            Some(format!("centy:{number}"))
         }
         crate::proto::issue_ref::Ref::Jira(j) => {
             eprintln!("[worker_pool] Jira refs are not supported by worktree-io (task will fail): {}", j.id);
@@ -115,7 +134,7 @@ async fn execute_agent(issue_ref: Option<IssueRef>, agent: Option<String>) -> bo
         eprintln!("[worker_pool] task has no issue_ref — marking failed");
         return false;
     };
-    let Some(ref_str) = to_worktree_ref(r) else {
+    let Some(ref_str) = to_worktree_ref(r).await else {
         return false;
     };
 
@@ -219,26 +238,45 @@ mod tests {
         IssueRef { r#ref: Some(issue_ref::Ref::Jira(JiraIssueRef { id: id.into() })) }
     }
 
-    #[test]
-    fn worktree_ref_github() {
-        assert_eq!(to_worktree_ref(&github_ref("acme", "my-repo", "42")), Some("acme/my-repo#42".into()));
+    #[tokio::test]
+    async fn worktree_ref_github() {
+        assert_eq!(
+            to_worktree_ref(&github_ref("acme", "my-repo", "42")).await,
+            Some("acme/my-repo#42".into())
+        );
     }
 
-    #[test]
-    fn worktree_ref_centy() {
-        assert_eq!(to_worktree_ref(&centy_ref("7")), Some("centy:7".into()));
+    #[tokio::test]
+    async fn worktree_ref_centy() {
+        assert_eq!(to_worktree_ref(&centy_ref("7")).await, Some("centy:7".into()));
     }
 
-    #[test]
-    fn worktree_ref_jira_returns_none() {
-        // Jira is not supported by worktree-io
-        assert_eq!(to_worktree_ref(&jira_ref("PROJ-123")), None);
+    #[tokio::test]
+    async fn worktree_ref_jira_returns_none() {
+        assert_eq!(to_worktree_ref(&jira_ref("PROJ-123")).await, None);
     }
 
-    #[test]
-    fn worktree_ref_empty_issue_ref_returns_none() {
+    #[tokio::test]
+    async fn worktree_ref_empty_issue_ref_returns_none() {
         let empty = IssueRef { r#ref: None };
-        assert_eq!(to_worktree_ref(&empty), None);
+        assert_eq!(to_worktree_ref(&empty).await, None);
+    }
+
+    /// UUID-valued Centy number must either resolve to a valid `centy:<int>` ref or
+    /// return None (when the centy CLI isn't available in the test environment).
+    /// It must never produce `centy:<uuid>` — that is the original bug.
+    #[tokio::test]
+    async fn worktree_ref_centy_uuid_never_passes_uuid_to_worktree() {
+        let result = to_worktree_ref(&centy_ref("6f4853a9-3d82-4013-b909-c2d637f44541")).await;
+        if let Some(ref_str) = result {
+            assert!(
+                !ref_str.contains("6f4853a9-3d82-4013-b909-c2d637f44541"),
+                "UUID must not reach worktree open, got: {ref_str}"
+            );
+            let n = ref_str.strip_prefix("centy:").expect("must start with centy:");
+            assert!(n.parse::<u32>().is_ok(), "resolved part must be a positive integer, got: {n}");
+        }
+        // None is also valid (resolution failed because centy isn't available)
     }
 
     // --- pick_next_task tests ---

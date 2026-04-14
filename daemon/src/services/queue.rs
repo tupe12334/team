@@ -78,6 +78,17 @@ impl QueueService for QueueServiceImpl {
                 }));
             }
         };
+        // Validate agent name before acquiring the state lock.
+        if let Some(ref agent_name) = req.agent {
+            if !agent_name.is_empty() && !crate::gstack_agents::is_known(agent_name) {
+                return Ok(Response::new(EnqueueResponse {
+                    result: Some(enqueue_response::Result::Error(
+                        format!("unknown agent '{agent_name}'; use GetAvailableAgents to list valid agents"),
+                    )),
+                }));
+            }
+        }
+
         let task = Task {
             id: Uuid::new_v4().to_string(),
             issue_ref,
@@ -88,6 +99,19 @@ impl QueueService for QueueServiceImpl {
             updated_at: Some(now),
         };
         let mut state = self.state.lock().await;
+        // If enabled_agents is configured, the chosen agent must be in the allowed set.
+        if let Some(ref agent_name) = task.agent {
+            if !agent_name.is_empty()
+                && !state.config.enabled_agents.is_empty()
+                && !state.config.enabled_agents.iter().any(|a| a == agent_name)
+            {
+                return Ok(Response::new(EnqueueResponse {
+                    result: Some(enqueue_response::Result::Error(
+                        format!("agent '{agent_name}' is not in the enabled agents list"),
+                    )),
+                }));
+            }
+        }
         state.queue.push(task.clone());
         state.save_queue().map_err(Status::internal)?;
         Ok(Response::new(EnqueueResponse {
@@ -120,6 +144,13 @@ impl QueueService for QueueServiceImpl {
             .ok_or_else(|| Status::not_found("task not found"))?;
 
         if let Some(agent) = req.agent {
+            if !agent.is_empty() && !crate::gstack_agents::is_known(&agent) {
+                return Ok(Response::new(UpdateTaskResponse {
+                    result: Some(update_task_response::Result::Error(
+                        format!("unknown agent '{agent}'; use GetAvailableAgents to list valid agents"),
+                    )),
+                }));
+            }
             task.agent = Some(agent);
         }
         if let Some(priority) = req.priority {
@@ -145,6 +176,14 @@ impl QueueService for QueueServiceImpl {
     ) -> Result<Response<RemoveTaskResponse>, Status> {
         let req = request.into_inner();
         let mut state = self.state.lock().await;
+        // Refuse to delete a task that a worker is actively executing.
+        if let Some(task) = state.queue.iter().find(|t| t.id == req.task_id) {
+            if task.status == TaskStatus::Running as i32 {
+                return Err(Status::failed_precondition(
+                    "cannot remove a running task; wait for it to complete or restart the daemon to re-queue it",
+                ));
+            }
+        }
         let before = state.queue.len();
         state.queue.retain(|t| t.id != req.task_id);
         if state.queue.len() == before {
@@ -292,6 +331,89 @@ mod tests {
         let svc = QueueServiceImpl::new(make_state());
         let req = Request::new(RemoveTaskRequest { task_id: "no-such-task".into() });
         assert!(svc.remove_task(req).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn enqueue_unknown_agent_is_rejected() {
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "1".into(),
+            })) }),
+            agent: Some("not-a-real-agent".into()),
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        assert_error(res.result, "unknown agent");
+    }
+
+    #[tokio::test]
+    async fn enqueue_known_agent_is_accepted() {
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "2".into(),
+            })) }),
+            agent: Some("review".into()),
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => assert_eq!(t.agent, Some("review".into())),
+            enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn enqueue_disabled_agent_is_rejected() {
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/queue-svc-disabled-test.toml".into(),
+            queue_path: "/tmp/queue-svc-disabled-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["qa".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state);
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "3".into(),
+            })) }),
+            agent: Some("review".into()), // valid gstack agent but not in enabled_agents
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        assert_error(res.result, "not in the enabled agents list");
+    }
+
+    #[tokio::test]
+    async fn remove_running_task_is_rejected() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "7").await;
+        // Mark the task as RUNNING
+        {
+            let mut s = state.lock().await;
+            s.queue.iter_mut().find(|t| t.id == task_id).unwrap().status = TaskStatus::Running as i32;
+        }
+        let req = Request::new(RemoveTaskRequest { task_id });
+        assert!(svc.remove_task(req).await.is_err(), "should reject deletion of a running task");
+    }
+
+    #[tokio::test]
+    async fn update_task_unknown_agent_is_rejected() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state);
+        let task_id = enqueue_github(&svc, "99").await;
+        let req = Request::new(UpdateTaskRequest {
+            task_id,
+            agent: Some("bogus-skill".into()),
+            priority: None,
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Error(msg) => assert!(msg.contains("unknown agent")),
+            update_task_response::Result::Task(_) => panic!("expected error, got task"),
+        }
     }
 
     #[tokio::test]

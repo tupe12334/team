@@ -41,6 +41,11 @@ static AGENTS: &[AgentDef] = &[
     AgentDef { name: "unfreeze", description: "Clear the freeze boundary set by freeze, allowing edits to all directories again." },
 ];
 
+/// Returns true if `name` matches any known gstack agent (case-sensitive).
+pub fn is_known(name: &str) -> bool {
+    AGENTS.iter().any(|a| a.name == name)
+}
+
 /// Returns all agents if `enabled` is empty, otherwise filters to only those listed.
 pub fn filter(enabled: &[String]) -> Vec<&'static AgentDef> {
     if enabled.is_empty() {
