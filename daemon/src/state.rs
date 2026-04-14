@@ -412,6 +412,28 @@ mod tests {
         );
     }
 
+    /// save_queue keeps a terminal task with no updated_at in both the JSON output and
+    /// in memory after a successful write.  The filter uses `is_none_or(...)` which
+    /// returns true for None — the defensive case.  `prune_keeps_tasks_with_no_updated_at`
+    /// covers the same None arm for `prune_old_tasks` called directly, but here we verify
+    /// that save_queue's own filter (distinct code path) also handles None correctly.
+    #[test]
+    fn save_queue_keeps_terminal_task_with_no_updated_at() {
+        let path = format!("/tmp/state-prune-no-ts-{}.json", uuid::Uuid::new_v4());
+        let mut state = AppState {
+            config_path: "/tmp/prune-no-ts-test.toml".into(),
+            queue_path: path.clone(),
+            queue: vec![make_task(TaskStatus::Completed, None)],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        state.save_queue().expect("save_queue must succeed with a writable path");
+        // Terminal task with no updated_at is kept defensively in both the JSON
+        // and in memory — is_none_or(None) returns true so it is not filtered out.
+        assert_eq!(state.queue.len(), 1, "terminal task with no updated_at must not be pruned");
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// Complement of the above: after a SUCCESSFUL write, stale terminal tasks
     /// should be pruned from memory to match what was written to disk.
     #[test]
