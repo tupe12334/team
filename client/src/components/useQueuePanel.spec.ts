@@ -274,6 +274,25 @@ describe("useQueuePanel", () => {
     expect(fetchMock.mock.calls.length).toBe(callsBefore);
   });
 
+  it("handleEnqueue does nothing when number is empty with other fields filled (buildIssueRef OR guard third arm)", async () => {
+    // The OR guard is: !org.trim() || !repo.trim() || !number.trim()
+    // "all empty" hits the first arm (short-circuits on org).
+    // "repo empty" hits the second arm. This test hits the third arm specifically:
+    // org and repo are filled, but number is still "" → !number.trim() is true → returns null.
+    const fetchMock = makeFetch(tasks, agents);
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setRepo("myrepo"); });
+    // number is still "" — third arm of the OR guard → buildIssueRef returns null
+    const callsBefore = fetchMock.mock.calls.length;
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    expect(result.current.submitting).toBe(false);
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
+  });
+
   it("handleEnqueue does nothing when LINK provider has empty url (buildIssueRef returns null)", async () => {
     const fetchMock = makeFetch(tasks, agents);
     vi.stubGlobal("fetch", fetchMock);
