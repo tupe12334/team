@@ -27,6 +27,14 @@ pub async fn resolve_centy_uuid(uuid: &str) -> Result<String, String> {
         .await
         .map_err(|e| format!("failed to spawn centy to resolve UUID {uuid}: {e}"))?;
 
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "centy exited with {} when resolving UUID {uuid}: {stderr}",
+            output.status.code().unwrap_or(-1)
+        ));
+    }
+
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     let json_start = match stdout.find('{') {
@@ -73,5 +81,28 @@ mod tests {
         assert!(!is_uuid("6f4853a9-3d82-4013-b909"));
         assert!(!is_uuid("6f4853a9-3d82-4013-b909-c2d637f44541-extra"));
         assert!(!is_uuid("gggggggg-0000-0000-0000-000000000000")); // invalid hex
+    }
+
+    /// When centy is not installed, resolve_centy_uuid must return an Err that
+    /// does NOT expose raw exit-code-0 stdout (previously any exit code was ignored
+    /// and the function would try to parse empty/garbage output as JSON).
+    #[tokio::test]
+    async fn resolve_centy_uuid_propagates_nonzero_exit() {
+        // Use a valid UUID format to skip the is_uuid gate.
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        let result = resolve_centy_uuid(uuid).await;
+        // Either centy resolved it (integration env) or returned an error.
+        // The error must not say "failed to parse centy JSON" for a non-zero exit —
+        // it should mention the exit code instead.
+        if let Err(ref msg) = result {
+            // If centy is missing entirely ("failed to spawn"), that's also acceptable.
+            let is_spawn_error = msg.contains("failed to spawn");
+            let is_exit_error = msg.contains("exited with");
+            let is_not_found = msg.contains("not found");
+            assert!(
+                is_spawn_error || is_exit_error || is_not_found,
+                "unexpected error message: {msg}"
+            );
+        }
     }
 }

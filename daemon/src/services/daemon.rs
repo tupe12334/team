@@ -85,6 +85,16 @@ impl DaemonService for DaemonServiceImpl {
                 )),
             }));
         }
+        const VALID_LOG_LEVELS: &[&str] = &["error", "warn", "info", "debug", "trace"];
+        if !VALID_LOG_LEVELS.contains(&new_config.log_level.as_str()) {
+            return Ok(Response::new(UpdateConfigResponse {
+                result: Some(update_config_response::Result::Error(format!(
+                    "invalid log_level '{}'; valid values: {}",
+                    new_config.log_level,
+                    VALID_LOG_LEVELS.join(", ")
+                ))),
+            }));
+        }
         for agent_name in &new_config.enabled_agents {
             if !crate::gstack_agents::is_known(agent_name) {
                 return Ok(Response::new(UpdateConfigResponse {
@@ -302,6 +312,49 @@ mod tests {
                 assert_eq!(c.enabled_agents, vec!["review", "qa"]);
             }
             update_config_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_config_rejects_invalid_log_level() {
+        let svc = DaemonServiceImpl::new(make_state(4));
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig {
+                workers_count: 4,
+                log_level: "verbose".into(),
+                enabled_agents: vec![],
+            }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Error(msg) => {
+                assert!(msg.contains("log_level"), "expected log_level error, got: {msg}");
+                assert!(msg.contains("verbose"), "error should name the bad value, got: {msg}");
+            }
+            update_config_response::Result::Ok(_) => panic!("expected error for invalid log_level"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_config_accepts_valid_log_levels() {
+        for level in &["error", "warn", "info", "debug", "trace"] {
+            let svc = DaemonServiceImpl::new(make_state(4));
+            let req = Request::new(UpdateConfigRequest {
+                config: Some(DaemonConfig {
+                    workers_count: 4,
+                    log_level: (*level).into(),
+                    enabled_agents: vec![],
+                }),
+            });
+            let res = svc.update_config(req).await.unwrap().into_inner();
+            match res.result.unwrap() {
+                update_config_response::Result::Ok(c) => {
+                    assert_eq!(c.log_level, *level);
+                }
+                update_config_response::Result::Error(e) => {
+                    panic!("unexpected error for log_level '{level}': {e}");
+                }
+            }
         }
     }
 

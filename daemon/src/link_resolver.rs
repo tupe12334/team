@@ -27,6 +27,9 @@ fn try_github(url: &str) -> Option<IssueRef> {
     let number_raw = parts.next().filter(|s| !s.is_empty())?;
     let number = number_raw.split('?').next().unwrap_or(number_raw);
     let number = number.split('#').next().unwrap_or(number);
+    if number.parse::<u32>().is_err() {
+        return None;
+    }
     Some(IssueRef {
         r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
             organization: org.to_string(),
@@ -226,6 +229,15 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[tokio::test]
+    async fn github_non_integer_number_returns_err() {
+        assert!(resolve("https://github.com/acme/my-repo/issues/not-a-number").await.is_err());
+    }
+    #[tokio::test]
+    async fn github_float_number_returns_err() {
+        assert!(resolve("https://github.com/acme/my-repo/issues/1.5").await.is_err());
     }
 
     #[tokio::test]

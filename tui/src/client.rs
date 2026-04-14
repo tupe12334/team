@@ -37,7 +37,10 @@ impl Client {
             .into_inner();
         match resp.result {
             Some(proto::get_info_response::Result::Ok(info)) => Ok(Some(info)),
-            _ => Ok(None),
+            Some(proto::get_info_response::Result::Error(msg)) => {
+                Err(color_eyre::eyre::eyre!("{msg}"))
+            }
+            None => Ok(None),
         }
     }
 
@@ -49,7 +52,10 @@ impl Client {
             .into_inner();
         match resp.result {
             Some(proto::list_queue_response::Result::Ok(task_list)) => Ok(task_list.tasks),
-            _ => Ok(vec![]),
+            Some(proto::list_queue_response::Result::Error(msg)) => {
+                Err(color_eyre::eyre::eyre!("{msg}"))
+            }
+            None => Ok(vec![]),
         }
     }
 
@@ -61,7 +67,10 @@ impl Client {
             .into_inner();
         match resp.result {
             Some(proto::worker_status_response::Result::Ok(data)) => Ok(Some(data)),
-            _ => Ok(None),
+            Some(proto::worker_status_response::Result::Error(msg)) => {
+                Err(color_eyre::eyre::eyre!("{msg}"))
+            }
+            None => Ok(None),
         }
     }
 }
