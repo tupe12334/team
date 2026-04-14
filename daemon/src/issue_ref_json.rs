@@ -189,6 +189,12 @@ mod tests {
         assert_eq!(j.to_string(), "jira:PROJ-123");
     }
 
+    #[test]
+    fn link_display() {
+        let j = IssueRefJson::Link { url: "https://app.centy.io/acme/proj/issues/42".into() };
+        assert_eq!(j.to_string(), "link:https://app.centy.io/acme/proj/issues/42");
+    }
+
     // --- Parse (deserialization) ---
 
     #[test]
@@ -288,6 +294,22 @@ mod tests {
     #[test]
     fn centy_serde_round_trip() {
         let j = IssueRefJson::Centy { organization: "acme".into(), repository: "proj".into(), number: "7".into() };
+        let serialized = serde_json::to_string(&j).unwrap();
+        let restored: IssueRefJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.to_string(), j.to_string());
+    }
+
+    #[test]
+    fn jira_serde_round_trip() {
+        let j = IssueRefJson::Jira { id: "PROJ-123".into() };
+        let serialized = serde_json::to_string(&j).unwrap();
+        let restored: IssueRefJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.to_string(), j.to_string());
+    }
+
+    #[test]
+    fn link_serde_round_trip() {
+        let j = IssueRefJson::Link { url: "https://github.com/acme/repo/issues/1".into() };
         let serialized = serde_json::to_string(&j).unwrap();
         let restored: IssueRefJson = serde_json::from_str(&serialized).unwrap();
         assert_eq!(restored.to_string(), j.to_string());

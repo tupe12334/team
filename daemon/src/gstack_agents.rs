@@ -115,4 +115,26 @@ mod tests {
     fn all_agent_descriptions_are_nonempty() {
         assert!(AGENTS.iter().all(|a| !a.description.is_empty()));
     }
+
+    #[test]
+    fn is_known_returns_true_for_known_agent() {
+        assert!(is_known("review"));
+        assert!(is_known("qa"));
+        assert!(is_known("ship"));
+    }
+
+    #[test]
+    fn is_known_returns_false_for_unknown_agent() {
+        assert!(!is_known("nonexistent-agent"));
+        assert!(!is_known(""));
+        assert!(!is_known("REVIEW")); // case-sensitive
+    }
+
+    #[test]
+    fn is_known_is_case_sensitive() {
+        // Agent names are lowercase only — uppercase must not match.
+        assert!(!is_known("Review"));
+        assert!(!is_known("QA"));
+        assert!(is_known("review"), "lowercase must still match");
+    }
 }
