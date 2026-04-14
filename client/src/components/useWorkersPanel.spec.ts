@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useWorkersPanel } from "./useWorkersPanel";
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 const workerData = {
   total: 2,
@@ -51,6 +51,5 @@ describe("useWorkersPanel", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     vi.advanceTimersByTime(5000);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    vi.useRealTimers();
   });
 });

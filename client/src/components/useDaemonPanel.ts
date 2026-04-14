@@ -42,8 +42,11 @@ export function useDaemonPanel() {
   const handleReload = async () => {
     setReloading(true);
     try {
-      await fetch("/api/daemon/reload", { method: "POST" });
+      const res = await fetch("/api/daemon/reload", { method: "POST" });
+      if (!res.ok) throw new ApiError(await res.text());
       await fetchInfo();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setReloading(false);
     }
@@ -53,7 +56,10 @@ export function useDaemonPanel() {
     if (!confirm("Shut down the daemon? It will need to be restarted manually.")) return;
     setShuttingDown(true);
     try {
-      await fetch("/api/daemon/shutdown", { method: "POST" });
+      const res = await fetch("/api/daemon/shutdown", { method: "POST" });
+      if (!res.ok) throw new ApiError(await res.text());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setShuttingDown(false);
     }

@@ -119,19 +119,26 @@ impl App {
             }
         }
 
-        if self.selected_task >= self.tasks.len() && !self.tasks.is_empty() {
-            self.selected_task = self.tasks.len() - 1;
+        let active_len = match self.active_tab {
+            Tab::Queue => self.tasks.len(),
+            Tab::Workers => self.worker_status.as_ref().map_or(0, |w| w.workers.len()),
+            Tab::Daemon => 0,
+        };
+        if active_len > 0 && self.selected_task >= active_len {
+            self.selected_task = active_len - 1;
         }
     }
 
     fn next_tab(&mut self) {
         let idx = Tab::ALL.iter().position(|t| *t == self.active_tab).unwrap_or(0);
         self.active_tab = Tab::ALL[(idx + 1) % Tab::ALL.len()];
+        self.selected_task = 0;
     }
 
     fn prev_tab(&mut self) {
         let idx = Tab::ALL.iter().position(|t| *t == self.active_tab).unwrap_or(0);
         self.active_tab = Tab::ALL[(idx + Tab::ALL.len() - 1) % Tab::ALL.len()];
+        self.selected_task = 0;
     }
 
     fn select_next(&mut self) {

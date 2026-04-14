@@ -171,6 +171,9 @@
     "protobufjs",
     "refetches",
     "refetched",
+    "myorg",
+    "myrepo",
+    "unstub",
     "Vitest"
   ]
 }

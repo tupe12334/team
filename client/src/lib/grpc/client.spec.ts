@@ -13,9 +13,13 @@ import {
   ApiError,
   EmptyResponseError,
   daemonGetInfo,
+  daemonShutdown,
+  daemonReloadConfig,
   daemonGetAvailableAgents,
   queueList,
   queueEnqueue,
+  queueUpdateTask,
+  queueRemoveTask,
   workerGetStatus,
 } from "./client";
 
@@ -90,6 +94,33 @@ describe("queueEnqueue", () => {
     const result = await queueEnqueue(issueRef);
     expect(result).toEqual(task);
   });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "issue_ref is required" });
+    const issueRef = { github: { organization: "acme", repository: "app", number: "1" } };
+    await expect(queueEnqueue(issueRef)).rejects.toThrow(ApiError);
+  });
+});
+
+describe("queueUpdateTask", () => {
+  it("returns updated task on success", async () => {
+    const task = { id: "t1", status: 1, priority: 3, agent: "qa" };
+    mockGrpcCall.mockResolvedValueOnce({ task });
+    const result = await queueUpdateTask("t1", { agent: "qa", priority: 3 });
+    expect(result).toEqual(task);
+  });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "task not found" });
+    await expect(queueUpdateTask("missing-id", { priority: 1 })).rejects.toThrow(ApiError);
+  });
+});
+
+describe("queueRemoveTask", () => {
+  it("resolves on success", async () => {
+    mockGrpcCall.mockResolvedValueOnce(undefined);
+    await expect(queueRemoveTask("t1")).resolves.toBeUndefined();
+  });
 });
 
 describe("workerGetStatus", () => {
@@ -98,5 +129,34 @@ describe("workerGetStatus", () => {
     mockGrpcCall.mockResolvedValueOnce({ ok: status });
     const result = await workerGetStatus();
     expect(result).toEqual(status);
+  });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "worker service unavailable" });
+    await expect(workerGetStatus()).rejects.toThrow(ApiError);
+  });
+});
+
+describe("daemonShutdown", () => {
+  it("resolves on success", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ ok: {} });
+    await expect(daemonShutdown()).resolves.toBeUndefined();
+  });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "shutdown failed" });
+    await expect(daemonShutdown()).rejects.toThrow(ApiError);
+  });
+});
+
+describe("daemonReloadConfig", () => {
+  it("resolves on success", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ ok: {} });
+    await expect(daemonReloadConfig()).resolves.toBeUndefined();
+  });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "reload failed" });
+    await expect(daemonReloadConfig()).rejects.toThrow(ApiError);
   });
 });

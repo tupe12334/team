@@ -7,6 +7,8 @@ import type {
   GetInfoResponse,
   GetConfigResponse,
   UpdateConfigResponse,
+  ShutdownResponse,
+  ReloadConfigResponse,
 } from "@/gen/daemon";
 import type {
   IssueRefInput,
@@ -43,12 +45,14 @@ export async function daemonGetInfo(): Promise<DaemonInfo> {
 
 export async function daemonShutdown(): Promise<void> {
   const c = getDaemonClient();
-  await grpcCall((cb) => c.shutdown({}, cb));
+  const res = await grpcCall<ShutdownResponse>((cb) => c.shutdown({}, cb));
+  unwrap(res);
 }
 
 export async function daemonReloadConfig(): Promise<void> {
   const c = getDaemonClient();
-  await grpcCall((cb) => c.reloadConfig({}, cb));
+  const res = await grpcCall<ReloadConfigResponse>((cb) => c.reloadConfig({}, cb));
+  unwrap(res);
 }
 
 export async function queueList(): Promise<Task[]> {

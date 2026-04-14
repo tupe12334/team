@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useConfigPanel } from "./useConfigPanel";
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 function okFetch(data: unknown) {
   return { ok: true, json: () => Promise.resolve(data), text: () => Promise.resolve("") };
@@ -67,6 +67,19 @@ describe("useConfigPanel", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/daemon/config", expect.objectContaining({ method: "PATCH" }));
     act(() => { vi.advanceTimersByTime(2001); });
     expect(result.current.saved).toBe(false);
-    vi.useRealTimers();
+  });
+
+  it("handleSave sets error when PATCH fails", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve("save failed") });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...baseConfig, workersCount: 8 }); });
+    await act(async () => { await result.current.handleSave(); });
+    expect(result.current.error).toBe("save failed");
+    expect(result.current.saved).toBe(false);
+    expect(result.current.saving).toBe(false);
   });
 });

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
+import type { SyntheticEvent } from "react";
 import { useQueuePanel } from "./useQueuePanel";
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 const tasks = [
   { id: "t1", status: 1, priority: 5, agent: "review" },
@@ -95,6 +96,47 @@ describe("useQueuePanel", () => {
       const callsAfter = fetchMock.mock.calls.filter((c: unknown[]) => c[0] === "/api/queue").length;
       expect(callsAfter).toBeGreaterThan(callsBefore);
     });
-    vi.useRealTimers();
+  });
+
+  it("handleEnqueue posts and clears form on success", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve(agents) });
+      if (url === "/api/queue" && (init?.method !== "POST"))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      // POST /api/queue
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: "t3", status: 1, priority: 5 }) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setRepo("myrepo"); result.current.setNumber("42"); });
+    const preventDefault = vi.fn();
+    const mockEvent = { preventDefault } as unknown as SyntheticEvent<HTMLFormElement>;
+    const handleEnqueue = result.current.handleEnqueue;
+    await act(async () => { await handleEnqueue(mockEvent); });
+    expect(preventDefault).toHaveBeenCalled();
+    expect(result.current.org).toBe("");
+    expect(result.current.repo).toBe("");
+    expect(result.current.number).toBe("");
+    expect(result.current.submitting).toBe(false);
+  });
+
+  it("handleEnqueue sets error when POST fails", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve(agents) });
+      if (url === "/api/queue" && (init?.method !== "POST"))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      // POST fails
+      return Promise.resolve({ ok: false, text: () => Promise.resolve("enqueue failed") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setRepo("myrepo"); result.current.setNumber("42"); });
+    const mockEvent = { preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>;
+    const handleEnqueue = result.current.handleEnqueue;
+    await act(async () => { await handleEnqueue(mockEvent); });
+    expect(result.current.error).toBe("enqueue failed");
+    expect(result.current.submitting).toBe(false);
   });
 });

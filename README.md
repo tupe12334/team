@@ -18,7 +18,7 @@
 ## Requirements
 
 - Rust 1.85+ (`cargo`)
-- Go 1.22+
+- Go 1.26+
 - Node.js 20+ with `pnpm`
 - [`worktree-io`](https://github.com/worktree-io/runner) (`worktree` binary in PATH)
 

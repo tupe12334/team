@@ -64,7 +64,7 @@ tui/            Rust terminal UI (ratatui)
 ## Prerequisites
 
 - **Rust** 1.85+ — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Go** 1.22+
+- **Go** 1.26+
 - **Node.js** 20+ with **pnpm** — `npm i -g pnpm`
 - **buf** (proto toolchain) — `brew install bufbuild/buf/buf`
 - **protoc-gen-cobra** — `go install github.com/NathanBaulch/protoc-gen-cobra@latest`
@@ -100,7 +100,7 @@ pnpm --prefix client dev
 
 ```bash
 make lint    # proto generation + go vet (CLI + MCP), cargo clippy (daemon + TUI), ESLint
-make test    # proto generation + tsc --noEmit, Vitest (57 tests), cargo test (53 tests)
+make test    # proto generation + tsc --noEmit, Vitest (71 tests), cargo test (53 tests)
 make build   # proto generation + compile CLI, MCP, daemon, TUI, Next.js
 ```
 

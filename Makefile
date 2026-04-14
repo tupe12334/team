@@ -46,7 +46,7 @@ test: generate ## Run all tests (TypeScript typecheck + client Vitest + daemon R
 
 .PHONY: lint
 lint: generate ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
-	cd cli && GOWORK=off go vet $(shell cd cli && GOWORK=off go list ./... | grep -v /gen)
+	cd cli && GOWORK=off go vet ./...
 	cd mcp && go vet ./...
 	cd daemon && cargo clippy -- -D warnings
 	cd tui && cargo clippy -- -D warnings
