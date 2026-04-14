@@ -156,3 +156,77 @@ impl QueueService for QueueServiceImpl {
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proto::{
+        DaemonConfig, GitHubIssueRef, IssueRefInput, JiraIssueRef, LinkRef,
+        issue_ref_input,
+    };
+    use crate::proto::queue_service_server::QueueService;
+
+    fn make_state() -> Arc<Mutex<AppState>> {
+        Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/queue-svc-test.toml".into(),
+            queue_path: "/tmp/queue-svc-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec![] },
+        }))
+    }
+
+    fn enqueue_req(r: issue_ref_input::Ref) -> Request<EnqueueRequest> {
+        Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(r) }),
+            agent: None,
+            priority: None,
+        })
+    }
+
+    fn assert_error(result: Option<enqueue_response::Result>, substr: &str) {
+        match result.expect("no result") {
+            enqueue_response::Result::Error(msg) => {
+                assert!(msg.contains(substr), "expected '{substr}' in error: {msg}");
+            }
+            enqueue_response::Result::Task(_) => panic!("expected error, got task"),
+        }
+    }
+
+    #[tokio::test]
+    async fn enqueue_jira_ref_is_rejected() {
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Jira(JiraIssueRef { id: "PROJ-123".into() }))).await.unwrap().into_inner();
+        assert_error(res.result, "Jira");
+    }
+
+    #[tokio::test]
+    async fn enqueue_jira_link_is_rejected() {
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Link(LinkRef { url: "https://acme.atlassian.net/browse/PROJ-99".into() }))).await.unwrap().into_inner();
+        assert_error(res.result, "Jira");
+    }
+
+    #[tokio::test]
+    async fn enqueue_missing_issue_ref_is_rejected() {
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(EnqueueRequest { issue_ref: None, agent: None, priority: None });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        assert_error(res.result, "required");
+    }
+
+    #[tokio::test]
+    async fn enqueue_github_ref_succeeds() {
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Github(GitHubIssueRef {
+            organization: "acme".into(), repository: "app".into(), number: "42".into(),
+        }))).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert!(!t.id.is_empty());
+                assert_eq!(t.status, TaskStatus::Queued as i32);
+            }
+            enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+}
