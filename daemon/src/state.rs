@@ -183,14 +183,39 @@ impl AppState {
     }
 
     pub fn save_queue(&mut self) -> Result<(), String> {
-        // Prune stale terminal tasks (>7 days old) before persisting.
-        self.prune_old_tasks(7 * 24 * 3600);
-        let json_tasks: Vec<TaskJson> = self.queue.iter().cloned().map(TaskJson::from).collect();
+        // Build the serializable task list, excluding stale terminal tasks (>7 days old).
+        // Crucially, we do NOT mutate self.queue yet: only prune in memory AFTER a
+        // successful write so that a failed write leaves the in-memory queue untouched
+        // for rollback callers (enqueue, update_task, remove_task, worker_pool).
+        const MAX_AGE_SECS: i64 = 7 * 24 * 3600;
+        let cutoff = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64
+            - MAX_AGE_SECS;
+        let json_tasks: Vec<TaskJson> = self
+            .queue
+            .iter()
+            .filter(|t| {
+                let terminal = t.status == TaskStatus::Completed as i32
+                    || t.status == TaskStatus::Failed as i32;
+                if !terminal {
+                    return true;
+                }
+                // Keep recent terminal tasks; drop stale ones from the persisted file.
+                t.updated_at.as_ref().is_none_or(|ts| ts.seconds >= cutoff)
+            })
+            .cloned()
+            .map(TaskJson::from)
+            .collect();
         let contents = serde_json::to_string_pretty(&json_tasks).map_err(|e| e.to_string())?;
         if let Some(parent) = std::path::Path::new(&self.queue_path).parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        std::fs::write(&self.queue_path, contents).map_err(|e| e.to_string())
+        std::fs::write(&self.queue_path, &contents).map_err(|e| e.to_string())?;
+        // Write succeeded — now prune in memory to match what was written to disk.
+        self.prune_old_tasks(MAX_AGE_SECS);
+        Ok(())
     }
 }
 
@@ -353,6 +378,52 @@ mod tests {
         assert!(err.contains("malformed config"), "error should describe the problem, got: {err}");
         // Config must not have changed — still the original values
         assert_eq!(state.config.workers_count, 7, "config must be unchanged after failed reload");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// save_queue must NOT prune in memory when the disk write fails.
+    /// Violating this invariant would silently corrupt rollback callers: their
+    /// own rollback restores the specific task they mutated, but pruned tasks
+    /// can never be restored — leaving memory with fewer tasks than disk.
+    #[test]
+    fn save_queue_does_not_prune_in_memory_when_write_fails() {
+        let old_ts = now_secs() - 8 * 24 * 3600; // 8 days ago — prune-eligible
+        let mut state = AppState {
+            config_path: "/tmp/prune-write-fail-test.toml".into(),
+            queue_path: "/nonexistent-dir/queue.json".into(), // path that cannot be written
+            queue: vec![make_task(TaskStatus::Completed, Some(old_ts))],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        assert_eq!(state.queue.len(), 1, "setup: queue must have the old terminal task");
+        let result = state.save_queue();
+        assert!(result.is_err(), "save_queue must fail with a path that cannot be written");
+        assert_eq!(
+            state.queue.len(), 1,
+            "old terminal task must survive in memory after a failed write — \
+             rollback callers depend on this invariant"
+        );
+    }
+
+    /// Complement of the above: after a SUCCESSFUL write, stale terminal tasks
+    /// should be pruned from memory to match what was written to disk.
+    #[test]
+    fn save_queue_prunes_in_memory_after_successful_write() {
+        let path = format!("/tmp/state-prune-success-{}.json", uuid::Uuid::new_v4());
+        let old_ts = now_secs() - 8 * 24 * 3600;
+        let mut state = AppState {
+            config_path: "/tmp/prune-success-test.toml".into(),
+            queue_path: path.clone(),
+            queue: vec![make_task(TaskStatus::Completed, Some(old_ts))],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        assert_eq!(state.queue.len(), 1);
+        state.save_queue().expect("save_queue must succeed with a writable path");
+        assert!(
+            state.queue.is_empty(),
+            "old terminal task must be pruned from memory after a successful write"
+        );
         let _ = std::fs::remove_file(&path);
     }
 
