@@ -257,9 +257,11 @@ mod tests {
     use crate::proto::queue_service_server::QueueService;
 
     fn make_state() -> Arc<Mutex<AppState>> {
+        // Unique path per call so parallel tests cannot corrupt each other's queue file.
+        let id = uuid::Uuid::new_v4();
         Arc::new(Mutex::new(AppState {
-            config_path: "/tmp/queue-svc-test.toml".into(),
-            queue_path: "/tmp/queue-svc-test.json".into(),
+            config_path: format!("/tmp/queue-svc-test-{id}.toml"),
+            queue_path: format!("/tmp/queue-svc-test-{id}.json"),
             queue: Vec::new(),
             workers: Vec::new(),
             config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec![] },
