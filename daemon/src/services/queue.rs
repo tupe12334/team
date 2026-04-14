@@ -882,6 +882,44 @@ mod tests {
         }
     }
 
+    /// When `agent = Some("")` and `enabled_agents` is configured, the
+    /// `!agent_name.is_empty()` guard in the enabled_agents check short-circuits to false
+    /// — skipping the check entirely — so the task is accepted.  This is a distinct code
+    /// path from both `agent: None` (outer `if let Some` fails) and `agent: Some("review")`
+    /// with a non-matching enabled list (all three `&&` conditions are true → rejected).
+    /// The update_task variant is covered by `update_task_empty_agent_string_sets_agent_without_validation`;
+    /// this test covers the parallel branch in the enqueue handler.
+    #[tokio::test]
+    async fn enqueue_empty_agent_string_bypasses_enabled_agents_check() {
+        let id = uuid::Uuid::new_v4();
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: format!("/tmp/enqueue-empty-agent-{id}.toml"),
+            queue_path: format!("/tmp/enqueue-empty-agent-{id}.json"),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            // "qa" is the only enabled agent — "" is not in this list but must not be rejected.
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["qa".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state);
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "7".into(),
+            })) }),
+            agent: Some("".into()), // empty string — !is_empty() = false → enabled_agents check skipped
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert_eq!(t.agent, Some("".into()), "empty agent must be stored as-is");
+                assert_eq!(t.status, TaskStatus::Queued as i32, "task must be queued");
+            }
+            enqueue_response::Result::Error(e) => {
+                panic!("empty agent with enabled_agents configured must not be rejected, got: {e}");
+            }
+        }
+    }
+
     #[tokio::test]
     async fn list_queue_returns_all_tasks() {
         let state = make_state();
