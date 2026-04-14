@@ -41,4 +41,13 @@ describe("POST /api/daemon/reload", () => {
     const body = await res.json() as { error: string };
     expect(body.error).toContain("malformed config");
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockReload.mockRejectedValueOnce("reload service unavailable");
+    const res = await POST();
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("reload service unavailable");
+  });
 });

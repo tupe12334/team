@@ -42,4 +42,13 @@ describe("POST /api/daemon/shutdown", () => {
     const res = await POST();
     expect(res.status).toBe(503);
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockShutdown.mockRejectedValueOnce("shutdown service unavailable");
+    const res = await POST();
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("shutdown service unavailable");
+  });
 });

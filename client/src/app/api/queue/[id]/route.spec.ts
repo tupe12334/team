@@ -70,6 +70,20 @@ describe("PATCH /api/queue/[id]", () => {
     const res = await PATCH(req as never, makeParams("t1"));
     expect(res.status).toBe(503);
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockUpdate.mockRejectedValueOnce("update service unavailable");
+    const req = new Request("http://localhost/api/queue/t1", {
+      method: "PATCH",
+      body: JSON.stringify({}),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PATCH(req as never, makeParams("t1"));
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("update service unavailable");
+  });
 });
 
 describe("DELETE /api/queue/[id]", () => {
@@ -109,5 +123,15 @@ describe("DELETE /api/queue/[id]", () => {
     const req = new Request("http://localhost/api/queue/t1", { method: "DELETE" });
     const res = await DELETE(req as never, makeParams("t1"));
     expect(res.status).toBe(503);
+  });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockRemove.mockRejectedValueOnce("remove service unavailable");
+    const req = new Request("http://localhost/api/queue/t1", { method: "DELETE" });
+    const res = await DELETE(req as never, makeParams("t1"));
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("remove service unavailable");
   });
 });

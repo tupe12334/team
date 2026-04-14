@@ -37,6 +37,15 @@ describe("GET /api/daemon/config", () => {
     const res = await GET();
     expect(res.status).toBe(503);
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockGetConfig.mockRejectedValueOnce("config service unavailable");
+    const res = await GET();
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("config service unavailable");
+  });
 });
 
 describe("PATCH /api/daemon/config", () => {
@@ -87,5 +96,19 @@ describe("PATCH /api/daemon/config", () => {
     });
     const res = await PATCH(req);
     expect(res.status).toBe(503);
+  });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockUpdateConfig.mockRejectedValueOnce("update service unavailable");
+    const req = new Request("http://localhost/api/daemon/config", {
+      method: "PATCH",
+      body: JSON.stringify({ workersCount: 4, logLevel: "info", enabledAgents: [] }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("update service unavailable");
   });
 });

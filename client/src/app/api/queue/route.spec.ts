@@ -115,4 +115,18 @@ describe("POST /api/queue", () => {
     const res = await POST(req as never);
     expect(res.status).toBe(503);
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` in POST catch — the String(err) arm
+    mockEnqueue.mockRejectedValueOnce("enqueue service unavailable");
+    const req = new Request("http://localhost/api/queue", {
+      method: "POST",
+      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: "1" } } }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req as never);
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("enqueue service unavailable");
+  });
 });

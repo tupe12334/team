@@ -75,4 +75,13 @@ describe("GET /api/workers", () => {
     const res = await GET();
     expect(res.status).toBe(503);
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockGetStatus.mockRejectedValueOnce("workers service crashed");
+    const res = await GET();
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("workers service crashed");
+  });
 });

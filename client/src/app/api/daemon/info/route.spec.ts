@@ -43,4 +43,13 @@ describe("GET /api/daemon/info", () => {
     const res = await GET();
     expect(res.status).toBe(503);
   });
+
+  it("returns 502 with String() error when a non-Error value is thrown", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm
+    mockGetInfo.mockRejectedValueOnce("info unavailable");
+    const res = await GET();
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("info unavailable");
+  });
 });
