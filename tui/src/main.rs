@@ -12,9 +12,13 @@ async fn main() -> Result<()> {
     // Load .env from the project root (one level up from tui/)
     let _ = dotenvy::from_path("../.env");
 
-    let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
-    let host = std::env::var("DAEMON_HOST").unwrap_or_else(|_| "[::1]".to_string());
-    let addr = format!("http://{host}:{port}");
+    let addr = if let Ok(a) = std::env::var("DAEMON_ADDR") {
+        format!("http://{a}")
+    } else {
+        let port = std::env::var("DAEMON_PORT").unwrap_or_else(|_| "50051".to_string());
+        let host = std::env::var("DAEMON_HOST").unwrap_or_else(|_| "[::1]".to_string());
+        format!("http://{host}:{port}")
+    };
 
     let mut app = App::new(addr)?;
     app.run().await
