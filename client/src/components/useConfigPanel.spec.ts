@@ -117,4 +117,23 @@ describe("useConfigPanel", () => {
     expect(result.current.saved).toBe(false);
     expect(result.current.saving).toBe(false);
   });
+
+  it("isDirty is false when enabledAgents differ only in order", async () => {
+    const configWithAgents = { ...baseConfig, enabledAgents: ["review", "qa"] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(configWithAgents)));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // Reorder agents in draft — same set, different order
+    act(() => { result.current.setDraft({ ...configWithAgents, enabledAgents: ["qa", "review"] }); });
+    expect(result.current.isDirty).toBeFalsy();
+  });
+
+  it("isDirty is true when enabledAgents have different content despite same length", async () => {
+    const configWithAgents = { ...baseConfig, enabledAgents: ["review", "qa"] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(configWithAgents)));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...configWithAgents, enabledAgents: ["review", "ship"] }); });
+    expect(result.current.isDirty).toBeTruthy();
+  });
 });

@@ -85,6 +85,15 @@ impl DaemonService for DaemonServiceImpl {
                 )),
             }));
         }
+        for agent_name in &new_config.enabled_agents {
+            if !crate::gstack_agents::is_known(agent_name) {
+                return Ok(Response::new(UpdateConfigResponse {
+                    result: Some(update_config_response::Result::Error(
+                        format!("unknown agent '{agent_name}'; use GetAvailableAgents to list valid agents"),
+                    )),
+                }));
+            }
+        }
         let mut state = self.state.lock().await;
         state.config = new_config.clone();
         if let Err(e) = state.save_config() {
@@ -222,5 +231,49 @@ mod tests {
         let svc = DaemonServiceImpl::new(make_state(4));
         let res = svc.reload_config(Request::new(())).await.unwrap().into_inner();
         assert!(matches!(res.result.unwrap(), reload_config_response::Result::Ok(())));
+    }
+
+    #[tokio::test]
+    async fn update_config_rejects_unknown_enabled_agent() {
+        let state = make_state(4);
+        let svc = DaemonServiceImpl::new(state.clone());
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig {
+                workers_count: 4,
+                log_level: "info".into(),
+                enabled_agents: vec!["nonexistent-agent".into()],
+            }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Error(msg) => {
+                assert!(msg.contains("nonexistent-agent"), "error should name the bad agent, got: {msg}");
+                assert!(msg.contains("GetAvailableAgents"), "error should point to remedy, got: {msg}");
+            }
+            update_config_response::Result::Ok(_) => panic!("expected error for unknown agent"),
+        }
+        // State must be unchanged
+        let locked = state.lock().await;
+        assert!(locked.config.enabled_agents.is_empty());
+    }
+
+    #[tokio::test]
+    async fn update_config_accepts_known_enabled_agent() {
+        let state = make_state(4);
+        let svc = DaemonServiceImpl::new(state.clone());
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig {
+                workers_count: 4,
+                log_level: "info".into(),
+                enabled_agents: vec!["review".into(), "qa".into()],
+            }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Ok(c) => {
+                assert_eq!(c.enabled_agents, vec!["review", "qa"]);
+            }
+            update_config_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
     }
 }

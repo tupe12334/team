@@ -64,7 +64,7 @@ export function useConfigPanel() {
   const isDirty = draft && config && (
     draft.workersCount !== config.workersCount ||
     draft.logLevel !== config.logLevel ||
-    draft.enabledAgents.join(",") !== config.enabledAgents.join(",")
+    [...draft.enabledAgents].sort().join(",") !== [...config.enabledAgents].sort().join(",")
   );
 
   const handleSave = async () => {

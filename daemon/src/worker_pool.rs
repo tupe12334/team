@@ -183,6 +183,10 @@ async fn finish_task(
             seconds: now_seconds(),
             nanos: 0,
         });
+    } else {
+        eprintln!(
+            "[worker_pool] finish_task: task {task_id} not found in queue (removed while running?); worker slot freed"
+        );
     }
 
     s.workers.retain(|w| w.worker_id != worker_id);
@@ -405,5 +409,26 @@ mod tests {
         let s = state.lock().await;
         let task = s.queue.iter().find(|t| t.id == "t1").expect("task must exist");
         assert_eq!(task.status, TaskStatus::Failed as i32);
+    }
+
+    #[tokio::test]
+    async fn finish_task_frees_worker_even_when_task_already_removed() {
+        // Simulate a task that was deleted while it was running (admin forced removal).
+        // The worker slot must still be freed so capacity is not permanently lost.
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            // No task in queue — already removed
+            s.workers.push(WorkerInfo {
+                worker_id: "w1".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "ghost-task".into(),
+                current_agent: String::new(),
+                task_started_at: None,
+            });
+        }
+        finish_task(&state, "ghost-task", "w1", true).await;
+        let s = state.lock().await;
+        assert!(s.workers.is_empty(), "worker slot must be freed even when task is missing");
     }
 }
