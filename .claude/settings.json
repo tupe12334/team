@@ -92,7 +92,8 @@
       "Skill(ralph-loop:ralph-loop)",
       "Bash(go build:*)",
       "Bash(docker run:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "mcp__centy__centy_v1_CentyDaemon_ListOrganizations"
     ],
     "deny": []
   }
