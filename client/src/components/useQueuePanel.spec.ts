@@ -208,6 +208,27 @@ describe("useQueuePanel", () => {
     expect(result.current.error).toBe("failed to load agents");
   });
 
+  it("handleEnqueue sets error via String() when fetch throws a non-Error value", async () => {
+    // exercises the `e instanceof Error ? e.message : String(e)` catch branch
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "POST")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      // POST rejects with a non-Error value
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject("enqueue network failure");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setRepo("myrepo"); result.current.setNumber("42"); });
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    expect(result.current.error).toBe("enqueue network failure");
+    expect(result.current.submitting).toBe(false);
+  });
+
   it("handleEnqueue does nothing when org/repo/number are all empty (buildIssueRef returns null)", async () => {
     const fetchMock = makeFetch(tasks, agents);
     vi.stubGlobal("fetch", fetchMock);

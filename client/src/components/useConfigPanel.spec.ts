@@ -38,6 +38,16 @@ describe("useConfigPanel", () => {
     expect(result.current.error).toBe("config unavailable");
   });
 
+  it("handleSave does nothing when draft is null (fetch not yet resolved)", async () => {
+    // draft starts null; fetchConfig never resolves → handleSave hits `if (!draft) return`
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise<never>(() => {})));
+    const { result } = renderHook(() => useConfigPanel());
+    // draft is still null — loading hasn't completed
+    await act(async () => { await result.current.handleSave(); });
+    expect(result.current.saving).toBe(false);
+    expect(result.current.saved).toBe(false);
+  });
+
   it("isDirty is false when draft matches config", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(baseConfig)));
     const { result } = renderHook(() => useConfigPanel());

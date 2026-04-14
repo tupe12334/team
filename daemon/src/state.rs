@@ -446,6 +446,26 @@ mod tests {
     }
 
     #[test]
+    fn reload_config_returns_err_for_non_notfound_io_error() {
+        // Passing a directory path causes read_to_string to fail with an error whose
+        // kind is NOT NotFound (IsADirectory / Other on macOS+Linux).
+        // reload_config must propagate this as Err("failed to read config...") rather
+        // than silently falling back to defaults (which is only correct for missing files).
+        let mut state = AppState {
+            config_path: "/tmp".into(), // existing directory, not a file
+            queue_path: "/tmp/state-test-queue.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 7, log_level: "warn".into(), enabled_agents: vec![] },
+        };
+        let result = state.reload_config();
+        // Config must remain unchanged when reload fails.
+        assert_eq!(state.config.workers_count, 7, "config must not change on IO error");
+        let err = result.expect_err("reading a directory must return Err, not fall back to defaults");
+        assert!(err.contains("failed to read config"), "got: {err}");
+    }
+
+    #[test]
     fn running_tasks_are_re_queued_on_load() {
         // Create a unique temp dir so config path and queue path are both isolated.
         let dir = format!("/tmp/team-state-test-{}", uuid::Uuid::new_v4());
