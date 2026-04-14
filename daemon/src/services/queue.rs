@@ -162,7 +162,8 @@ mod tests {
     use super::*;
     use crate::proto::{
         DaemonConfig, GitHubIssueRef, IssueRefInput, JiraIssueRef, LinkRef,
-        issue_ref_input,
+        UpdateTaskRequest, RemoveTaskRequest, ListQueueRequest,
+        issue_ref_input, list_queue_response, update_task_response, remove_task_response,
     };
     use crate::proto::queue_service_server::QueueService;
 
@@ -228,5 +229,83 @@ mod tests {
             }
             enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
         }
+    }
+
+    async fn enqueue_github(svc: &QueueServiceImpl, number: &str) -> String {
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Github(GitHubIssueRef {
+            organization: "acme".into(), repository: "app".into(), number: number.into(),
+        }))).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => t.id,
+            enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_task_changes_agent_and_priority() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state);
+        let task_id = enqueue_github(&svc, "42").await;
+
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("review".into()),
+            priority: Some(10),
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        let updated = match res.result.unwrap() {
+            update_task_response::Result::Task(t) => t,
+            update_task_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        };
+        assert_eq!(updated.id, task_id);
+        assert_eq!(updated.agent, Some("review".into()));
+        assert_eq!(updated.priority, 10);
+    }
+
+    #[tokio::test]
+    async fn update_task_not_found_returns_error() {
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(UpdateTaskRequest {
+            task_id: "nonexistent-id".into(),
+            agent: None,
+            priority: Some(5),
+        });
+        assert!(svc.update_task(req).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn remove_task_removes_from_queue() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "99").await;
+
+        let req = Request::new(RemoveTaskRequest { task_id: task_id.clone() });
+        let res = svc.remove_task(req).await.unwrap().into_inner();
+        assert!(matches!(res.result.unwrap(), remove_task_response::Result::Ok(())));
+
+        let locked = state.lock().await;
+        assert!(!locked.queue.iter().any(|t| t.id == task_id));
+    }
+
+    #[tokio::test]
+    async fn remove_task_not_found_returns_error() {
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(RemoveTaskRequest { task_id: "no-such-task".into() });
+        assert!(svc.remove_task(req).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn list_queue_returns_all_tasks() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state);
+        enqueue_github(&svc, "1").await;
+        enqueue_github(&svc, "2").await;
+
+        let res = svc.list_queue(Request::new(ListQueueRequest {})).await.unwrap().into_inner();
+        let tasks = match res.result.unwrap() {
+            list_queue_response::Result::Ok(tl) => tl.tasks,
+            list_queue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        };
+        assert_eq!(tasks.len(), 2);
     }
 }
