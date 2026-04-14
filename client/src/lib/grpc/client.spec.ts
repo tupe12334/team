@@ -112,6 +112,12 @@ describe("queueEnqueue", () => {
     const issueRef = { github: { organization: "acme", repository: "app", number: "1" } };
     await expect(queueEnqueue(issueRef)).rejects.toThrow(ApiError);
   });
+
+  it("throws EmptyResponseError when response has neither ok/task nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    const issueRef = { github: { organization: "acme", repository: "app", number: "1" } };
+    await expect(queueEnqueue(issueRef)).rejects.toThrow(EmptyResponseError);
+  });
 });
 
 describe("queueUpdateTask", () => {
@@ -125,6 +131,11 @@ describe("queueUpdateTask", () => {
   it("throws ApiError on error response", async () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "task not found" });
     await expect(queueUpdateTask("missing-id", { priority: 1 })).rejects.toThrow(ApiError);
+  });
+
+  it("throws EmptyResponseError when response has neither ok/task nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(queueUpdateTask("t1", {})).rejects.toThrow(EmptyResponseError);
   });
 });
 
@@ -154,6 +165,11 @@ describe("workerGetStatus", () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "worker service unavailable" });
     await expect(workerGetStatus()).rejects.toThrow(ApiError);
   });
+
+  it("throws EmptyResponseError when response has neither ok nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(workerGetStatus()).rejects.toThrow(EmptyResponseError);
+  });
 });
 
 describe("daemonShutdown", () => {
@@ -166,6 +182,11 @@ describe("daemonShutdown", () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "shutdown failed" });
     await expect(daemonShutdown()).rejects.toThrow(ApiError);
   });
+
+  it("throws EmptyResponseError when response has neither ok nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(daemonShutdown()).rejects.toThrow(EmptyResponseError);
+  });
 });
 
 describe("daemonReloadConfig", () => {
@@ -177,6 +198,11 @@ describe("daemonReloadConfig", () => {
   it("throws ApiError on error response", async () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "reload failed" });
     await expect(daemonReloadConfig()).rejects.toThrow(ApiError);
+  });
+
+  it("throws EmptyResponseError when response has neither ok nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(daemonReloadConfig()).rejects.toThrow(EmptyResponseError);
   });
 });
 
@@ -210,5 +236,10 @@ describe("daemonUpdateConfig", () => {
   it("throws ApiError on error response", async () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "update failed" });
     await expect(daemonUpdateConfig({ workersCount: 1, logLevel: "info", enabledAgents: [] })).rejects.toThrow(ApiError);
+  });
+
+  it("throws EmptyResponseError when response has neither ok nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(daemonUpdateConfig({ workersCount: 1, logLevel: "info", enabledAgents: [] })).rejects.toThrow(EmptyResponseError);
   });
 });
