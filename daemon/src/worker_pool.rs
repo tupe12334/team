@@ -387,6 +387,27 @@ mod tests {
         assert_eq!(s.workers[0].current_task_id, "t1");
     }
 
+    /// Verifies the `current_agent: agent.clone().unwrap_or_default()` path when the task
+    /// has a non-None agent.  The existing `pick_registers_worker` test uses a task with
+    /// `agent: None` (from `queued_task`), so `current_agent` is always `""` there.
+    /// This test uses a task with `agent: Some("review")` to exercise the non-default arm.
+    #[tokio::test]
+    async fn pick_populates_worker_current_agent_from_task_agent() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            let mut task = queued_task("t1", 5);
+            task.agent = Some("review".into());
+            s.queue.push(task);
+        }
+        let (_, _, _, agent) = pick_next_task(&state).await.expect("should pick");
+        // Returned agent must reflect the task's agent field
+        assert_eq!(agent, Some("review".into()), "returned agent must match the task's agent");
+        // Worker's current_agent must also be populated
+        let s = state.lock().await;
+        assert_eq!(s.workers[0].current_agent, "review", "current_agent must be set on the worker info");
+    }
+
     #[tokio::test]
     async fn pick_respects_workers_count_limit() {
         let state = make_state(1);
@@ -579,6 +600,34 @@ mod tests {
             Some("review".into()),
         ).await;
         assert!(!result, "execute_agent must return false when worktree is unavailable or open fails");
+    }
+
+    /// When agent is None, the `agent.filter(|a| !a.is_empty())` guard in execute_agent
+    /// returns None → TEAM_AGENT is not set on the child process.  The existing
+    /// `execute_agent_exercises_spawn_path_for_github_ref` test always passes Some("review"),
+    /// so the env-skip branch is never reached there.  This test hits it explicitly.
+    #[tokio::test]
+    async fn execute_agent_with_no_agent_skips_team_agent_env() {
+        // agent=None → filter returns None → cmd.env("TEAM_AGENT", _) is skipped.
+        // worktree will fail (not available or repo not found) → returns false.
+        let result = execute_agent(
+            Some(github_ref("team-ci-nonexistent", "repo", "99999")),
+            None,
+        ).await;
+        assert!(!result, "execute_agent must return false when worktree is unavailable");
+    }
+
+    /// When agent is Some(""), the `filter(|a| !a.is_empty())` guard drops it →
+    /// TEAM_AGENT is also not set.  This is a distinct code path to the None case:
+    /// `Some("").filter(|a| !a.is_empty())` → None via the filter predicate.
+    #[tokio::test]
+    async fn execute_agent_with_empty_agent_skips_team_agent_env() {
+        // agent=Some("") → filter strips it → cmd.env("TEAM_AGENT", _) is skipped.
+        let result = execute_agent(
+            Some(github_ref("team-ci-nonexistent", "repo", "99999")),
+            Some("".into()),
+        ).await;
+        assert!(!result, "execute_agent must return false when worktree is unavailable");
     }
 
     #[tokio::test]
