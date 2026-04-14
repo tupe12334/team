@@ -66,17 +66,19 @@ describe("useQueuePanel", () => {
     expect(result.current.tasks.find((t) => t.id === "t1")).toBeUndefined();
   });
 
-  it("handleDelete refetches on failure instead of removing", async () => {
+  it("handleDelete surfaces error and refetches on failure", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
       if (url === "/api/queue") return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
-      // DELETE fails
-      return Promise.resolve({ ok: false });
+      // DELETE fails with a JSON error body
+      return Promise.resolve({ ok: false, text: () => Promise.resolve('{"error":"delete not allowed"}') });
     });
     vi.stubGlobal("fetch", fetchMock);
     const { result } = renderHook(() => useQueuePanel());
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await result.current.handleDelete("t1"); });
+    // error message extracted from JSON body
+    expect(result.current.error).toBe("delete not allowed");
     // task should still be present (refetched)
     expect(result.current.tasks.find((t) => t.id === "t1")).toBeDefined();
   });

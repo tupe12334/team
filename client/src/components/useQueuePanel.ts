@@ -91,12 +91,14 @@ export function useQueuePanel() {
       if (res.ok) {
         setTasks((prev) => prev.filter((t) => t.id !== id));
       } else {
-        setError(parseError(await res.text()));
+        const errMsg = parseError(await res.text());
         await fetchTasks();
+        setError(errMsg);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const errMsg = e instanceof Error ? e.message : String(e);
       await fetchTasks();
+      setError(errMsg);
     } finally {
       setDeletingId(null);
     }
