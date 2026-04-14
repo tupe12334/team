@@ -243,6 +243,46 @@ describe("useQueuePanel", () => {
     expect(fetchMock.mock.calls.length).toBe(callsBefore); // no POST or refetch triggered
   });
 
+  it("handleEnqueue does nothing when LINK provider has empty url (buildIssueRef returns null)", async () => {
+    const fetchMock = makeFetch(tasks, agents);
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // Switch to LINK provider but leave url empty → buildIssueRef returns null
+    act(() => { result.current.setProvider("LINK"); });
+    const callsBefore = fetchMock.mock.calls.length;
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    expect(result.current.submitting).toBe(false);
+    expect(fetchMock.mock.calls.length).toBe(callsBefore); // no POST or refetch triggered
+  });
+
+  it("polling clears error when queue recovers after a failed poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let queueCallCount = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve(agents) });
+      queueCallCount++;
+      if (queueCallCount === 2) {
+        // Second queue call (first poll) fails
+        return Promise.resolve({ ok: false, text: () => Promise.resolve("queue down"), json: () => Promise.resolve(null) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBeNull();
+    // First poll — fails
+    act(() => { vi.advanceTimersByTime(5000); });
+    await waitFor(() => expect(result.current.error).toBe("queue down"));
+    // Second poll — recovers; fetchTasks calls setError(null) on success
+    act(() => { vi.advanceTimersByTime(5000); });
+    await waitFor(() => expect(result.current.error).toBeNull());
+    expect(result.current.tasks).toEqual(tasks);
+  });
+
   it("handleEnqueue with LINK provider sends link issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
