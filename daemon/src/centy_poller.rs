@@ -497,4 +497,53 @@ mod tests {
         // The task must be rolled back since persistence failed.
         assert_eq!(state.lock().await.queue.len(), 0, "queue must be rolled back when save fails");
     }
+
+    /// When the issues list contains a mix of already-present and new issues, only the
+    /// new ones should be enqueued.  The existing tests each cover either all-skipped or
+    /// all-new; this test exercises the `continue` branch and the add branch in the same
+    /// loop iteration — confirming the filter and push interact correctly.
+    #[tokio::test]
+    async fn enqueue_new_issues_skips_present_and_adds_new_in_same_call() {
+        let path = format!("/tmp/test-centy-mixed-{}.json", uuid::Uuid::new_v4());
+        let state = make_state_with_path(&path);
+        // Pre-populate with two already-tracked issues.
+        state.lock().await.queue.push(centy_task("acme", "backend", "1"));
+        state.lock().await.queue.push(centy_task("acme", "backend", "3"));
+
+        let issues = vec![
+            centy_issue("acme", "backend", "1"), // already present → skip
+            centy_issue("acme", "backend", "2"), // new → add
+            centy_issue("acme", "backend", "3"), // already present → skip
+        ];
+        enqueue_new_issues(&state, issues).await;
+
+        let s = state.lock().await;
+        // Only issue #2 was new; queue must have exactly 3 tasks (2 existing + 1 new).
+        assert_eq!(s.queue.len(), 3, "only new issues must be added; existing ones must be skipped");
+        let numbers: Vec<&str> = s.queue.iter()
+            .filter_map(|t| t.issue_ref.as_ref()?.r#ref.as_ref())
+            .filter_map(|r| if let issue_ref::Ref::Centy(c) = r { Some(c.number.as_str()) } else { None })
+            .collect();
+        assert!(numbers.contains(&"2"), "new issue #2 must be enqueued");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// When multiple new issues are enqueued but save_queue then fails, truncate must
+    /// remove ALL newly-pushed tasks — not just one.  The existing rollback test only
+    /// adds a single task; this test adds two to verify the truncate(before_len) removes
+    /// the correct slice regardless of how many entries were appended.
+    #[tokio::test]
+    async fn enqueue_new_issues_rolls_back_multiple_tasks_on_save_failure() {
+        // /dev/null makes save_queue fail so both pushes must be rolled back.
+        let state = make_state_with_path("/dev/null/queue.json");
+        let issues = vec![
+            centy_issue("acme", "backend", "10"),
+            centy_issue("acme", "backend", "11"),
+        ];
+        enqueue_new_issues(&state, issues).await;
+        assert_eq!(
+            state.lock().await.queue.len(), 0,
+            "all newly-pushed tasks must be removed by truncate when save fails"
+        );
+    }
 }
