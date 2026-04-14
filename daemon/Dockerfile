@@ -24,12 +24,20 @@ RUN rm -f target/release/deps/daemon* target/release/daemon
 COPY daemon/src/ ./src/
 RUN cargo build --release
 
+# Build worktree-io so workers can execute tasks
+RUN cargo install worktree-io --root /build/tools
+
 # ─── Runtime Stage ────────────────────────────────────────────────────────────
 FROM alpine:3
 
-RUN apk add --no-cache ca-certificates
+# centy: auto-poller for issues marked "in queue"
+# nodejs/npm are required to run the centy CLI (it's a Node.js package)
+RUN apk add --no-cache ca-certificates nodejs npm git && \
+    npm install -g centy@0.8.1 && \
+    npm cache clean --force
 
 COPY --from=builder /build/daemon/target/release/daemon /usr/local/bin/daemon
+COPY --from=builder /build/tools/bin/worktree /usr/local/bin/worktree
 
 # DAEMON_HOST=[::] binds to all interfaces so other containers can reach the daemon.
 # Override to [::1] if you want loopback-only outside Docker.

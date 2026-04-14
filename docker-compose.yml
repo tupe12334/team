@@ -4,12 +4,18 @@ services:
       context: .
       dockerfile: daemon/Dockerfile
     ports:
-      - "50051:50051"
+      # Mapped to 50052 on the host to avoid conflict with centy-daemon (which uses 50051)
+      - "50052:50051"
     environment:
       DAEMON_PORT: "50051"
       DAEMON_HOST: "[::]"
+      # Route centy CLI to the host's centy-daemon (host.docker.internal resolves to the host)
+      CENTY_DAEMON_ADDR: "host.docker.internal:50051"
     volumes:
       - daemon-data:/root/.config/team
+    # Ensures host.docker.internal resolves correctly on Linux (Docker Desktop handles this automatically)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   client:
