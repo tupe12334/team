@@ -428,6 +428,30 @@ mod tests {
         assert!(result.is_none());
     }
 
+    /// Verifies that the QUEUED filter and priority selection interact correctly when the
+    /// highest-priority task is already RUNNING.  The existing `pick_returns_highest_priority_queued_task`
+    /// test uses only QUEUED tasks; this test mixes one RUNNING (priority=99) with one QUEUED
+    /// (priority=1) to confirm the filter skips the RUNNING one and dispatches the QUEUED one.
+    #[tokio::test]
+    async fn pick_dispatches_lower_priority_queued_when_higher_priority_is_running() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            // Push highest-priority task already in RUNNING state
+            let mut t_running = queued_task("high-running", 99);
+            t_running.status = TaskStatus::Running as i32;
+            s.queue.push(t_running);
+            // Lower-priority task is the only QUEUED one — must be dispatched
+            s.queue.push(queued_task("low-queued", 1));
+        }
+        let result = pick_next_task(&state).await;
+        let (task_id, _, _, _) = result.expect("should pick the QUEUED task");
+        assert_eq!(
+            task_id, "low-queued",
+            "must dispatch the QUEUED task even though a higher-priority RUNNING task exists"
+        );
+    }
+
     #[tokio::test]
     async fn pick_rolls_back_to_queued_on_save_failure() {
         // Use a queue_path that cannot be written so save_queue fails.

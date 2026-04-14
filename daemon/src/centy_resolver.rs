@@ -83,6 +83,20 @@ mod tests {
         assert!(!is_uuid("gggggggg-0000-0000-0000-000000000000")); // invalid hex
     }
 
+    /// Exercises the `p.len() == len` check in the `all()` predicate — five parts with
+    /// correct hex digits but at least one segment of the wrong length.
+    /// The existing `is_uuid_rejects_malformed` test only covers wrong part *count* and
+    /// non-hex chars; this test isolates the length branch specifically.
+    #[test]
+    fn is_uuid_rejects_wrong_segment_length() {
+        // First segment 7 chars (expected 8)
+        assert!(!is_uuid("1234567-3d82-4013-b909-c2d637f44541"));
+        // Last segment 11 chars (expected 12)
+        assert!(!is_uuid("6f4853a9-3d82-4013-b909-c2d637f4454"));
+        // Second segment 3 chars (expected 4)
+        assert!(!is_uuid("6f4853a9-3d8-4013-b909-c2d637f44541"));
+    }
+
     /// When centy is not installed, resolve_centy_uuid must return an Err that
     /// does NOT expose raw exit-code-0 stdout (previously any exit code was ignored
     /// and the function would try to parse empty/garbage output as JSON).
