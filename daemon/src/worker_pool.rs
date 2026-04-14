@@ -37,13 +37,20 @@ async fn pick_next_task(
         return None;
     }
 
-    // Find highest-priority QUEUED task (higher priority value = pick first)
+    // Find highest-priority QUEUED task (higher priority value = pick first).
+    // Tie-break by queue index so that equal-priority tasks dispatch in FIFO order
+    // (lower index = enqueued earlier = picked first).  max_by_key alone would
+    // return the *last* equal-priority element, which is counter-intuitive LIFO.
     let idx = s
         .queue
         .iter()
         .enumerate()
         .filter(|(_, t)| t.status == TaskStatus::Queued as i32)
-        .max_by_key(|(_, t)| t.priority)
+        .max_by(|(i, a), (j, b)| {
+            a.priority
+                .cmp(&b.priority)
+                .then(j.cmp(i)) // lower index wins on tie → FIFO
+        })
         .map(|(i, _)| i)?;
 
     let task = &mut s.queue[idx];
@@ -322,6 +329,21 @@ mod tests {
     }
 
     // --- pick_next_task tests ---
+
+    #[tokio::test]
+    async fn pick_dispatches_fifo_for_equal_priority_tasks() {
+        // All tasks have the same priority — the first-enqueued one must be picked first.
+        // max_by_key alone would return the *last* element in case of ties, which is LIFO.
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            s.queue.push(queued_task("first", 0));
+            s.queue.push(queued_task("second", 0));
+            s.queue.push(queued_task("third", 0));
+        }
+        let (task_id, _, _, _) = pick_next_task(&state).await.expect("should pick a task");
+        assert_eq!(task_id, "first", "equal-priority tasks must be dispatched in FIFO order");
+    }
 
     #[tokio::test]
     async fn pick_returns_highest_priority_queued_task() {
