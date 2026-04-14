@@ -110,4 +110,37 @@ mod tests {
         assert_eq!(data.busy, 3);
         assert_eq!(data.idle, 0); // clamped at 0
     }
+
+    #[tokio::test]
+    async fn get_worker_status_returns_worker_info_details() {
+        // Verify that individual WorkerInfo fields are passed through, not just aggregate counts.
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/test.toml".into(),
+            queue_path: "/tmp/test-queue.json".into(),
+            queue: Vec::new(),
+            workers: vec![WorkerInfo {
+                worker_id: "worker-abc".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "task-xyz".into(),
+                current_agent: "review".into(),
+                task_started_at: None,
+            }],
+            config: DaemonConfig {
+                workers_count: 4,
+                log_level: "info".into(),
+                enabled_agents: vec![],
+            },
+        }));
+        let svc = WorkerServiceImpl::new(state);
+        let res = svc.get_worker_status(Request::new(WorkerStatusRequest {})).await.unwrap();
+        let data = match res.into_inner().result.unwrap() {
+            worker_status_response::Result::Ok(d) => d,
+            worker_status_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        };
+        assert_eq!(data.workers.len(), 1);
+        assert_eq!(data.workers[0].worker_id, "worker-abc");
+        assert_eq!(data.workers[0].current_task_id, "task-xyz");
+        assert_eq!(data.workers[0].current_agent, "review");
+        assert_eq!(data.workers[0].status, WorkerStatus::Busy as i32);
+    }
 }
