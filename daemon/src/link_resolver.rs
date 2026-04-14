@@ -297,4 +297,27 @@ mod tests {
     async fn centy_missing_number_returns_err() {
         assert!(resolve("https://app.centy.io/acme/proj/issues/").await.is_err());
     }
+
+    /// Empty org segment after the host: the .filter(|s| !s.is_empty()) on the
+    /// first splitn element returns None → try_github returns None → falls through
+    /// to try_jira/try_centy which also return None → Err("cannot resolve link").
+    #[tokio::test]
+    async fn github_url_with_empty_org_returns_err() {
+        assert!(resolve("https://github.com//repo/issues/5").await.is_err());
+    }
+
+    /// Empty repo segment: org passes the non-empty filter but repo does not —
+    /// try_github returns None → falls through → Err.
+    #[tokio::test]
+    async fn github_url_with_empty_repo_returns_err() {
+        assert!(resolve("https://github.com/acme//issues/5").await.is_err());
+    }
+
+    /// Centy URL that is too short to have a third path segment (no "issues"/kind):
+    /// parts.next() for kind returns None → Ok(None) → Err("cannot resolve link").
+    #[tokio::test]
+    async fn centy_url_short_path_returns_err() {
+        // Only org and project present — no kind segment at all.
+        assert!(resolve("https://app.centy.io/acme/proj").await.is_err());
+    }
 }

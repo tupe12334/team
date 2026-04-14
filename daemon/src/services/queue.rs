@@ -815,6 +815,73 @@ mod tests {
         }
     }
 
+    /// When enabled_agents is configured and the request has no agent (agent=None),
+    /// the `if let Some(ref agent_name) = task.agent` guard short-circuits immediately
+    /// and the task is accepted — not setting an agent is always allowed regardless of
+    /// what the enabled list contains.
+    #[tokio::test]
+    async fn enqueue_task_without_agent_accepted_when_enabled_agents_configured() {
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: format!("/tmp/enqueue-no-agent-{}.toml", uuid::Uuid::new_v4()),
+            queue_path: format!("/tmp/enqueue-no-agent-{}.json", uuid::Uuid::new_v4()),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["qa".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state);
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
+                organization: "acme".into(), repository: "app".into(), number: "99".into(),
+            })) }),
+            agent: None, // no agent — must not be rejected by the enabled_agents check
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert_eq!(t.agent, None, "task must have no agent when none was requested");
+                assert_eq!(t.status, TaskStatus::Queued as i32);
+            }
+            enqueue_response::Result::Error(e) => {
+                panic!("expected task to be accepted when agent is None, got error: {e}");
+            }
+        }
+    }
+
+    /// When enabled_agents is configured and update_task is called with agent=None
+    /// (meaning "don't change the current agent"), the outer `if let Some(ref agent)`
+    /// guard short-circuits — no validation is run and the task is updated successfully.
+    #[tokio::test]
+    async fn update_task_without_agent_accepted_when_enabled_agents_configured() {
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: format!("/tmp/update-no-agent-{}.toml", uuid::Uuid::new_v4()),
+            queue_path: format!("/tmp/update-no-agent-{}.json", uuid::Uuid::new_v4()),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec!["qa".into()] },
+        }));
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "42").await;
+        // agent=None: caller is only changing priority, not the agent field.
+        // This must not be rejected by the enabled_agents guard.
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: None,
+            priority: Some(5),
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => {
+                assert_eq!(t.priority, 5, "priority must be updated");
+                // agent was not set in the original enqueue_github call → still None
+                assert_eq!(t.agent, None, "agent must remain unchanged when not specified");
+            }
+            update_task_response::Result::Error(e) => {
+                panic!("expected task to be updated when agent is None, got error: {e}");
+            }
+        }
+    }
+
     #[tokio::test]
     async fn list_queue_returns_all_tasks() {
         let state = make_state();
