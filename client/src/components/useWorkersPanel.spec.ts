@@ -39,6 +39,18 @@ describe("useWorkersPanel", () => {
     expect(result.current.error).toBe("service unavailable");
   });
 
+  it("extracts error from JSON body when fetch returns non-ok with JSON error object", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      text: () => Promise.resolve('{"error":"workers service crashed"}'),
+    }));
+    const { result } = renderHook(() => useWorkersPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    // parseError extracts the message — user sees "workers service crashed" not raw JSON
+    expect(result.current.error).toBe("workers service crashed");
+  });
+
   it("clears data when workers service becomes unreachable after initial load", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn()

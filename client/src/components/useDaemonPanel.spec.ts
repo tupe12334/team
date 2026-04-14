@@ -29,6 +29,17 @@ describe("useDaemonPanel", () => {
     expect(result.current.error).toBe("bad gateway");
   });
 
+  it("extracts error from JSON body when fetch returns non-ok with JSON error object", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, text: () => Promise.resolve('{"error":"daemon crashed"}'),
+    }));
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.info).toBeNull();
+    // parseError extracts the message — user sees "daemon crashed" not raw JSON
+    expect(result.current.error).toBe("daemon crashed");
+  });
+
   it("clears info when daemon becomes unreachable after initial load", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };

@@ -208,6 +208,20 @@ describe("useQueuePanel", () => {
     expect(result.current.error).toBe("failed to load agents");
   });
 
+  it("handleEnqueue does nothing when org/repo/number are all empty (buildIssueRef returns null)", async () => {
+    const fetchMock = makeFetch(tasks, agents);
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsBefore = fetchMock.mock.calls.length;
+    // Default provider is GITHUB; org/repo/number are all "" → buildIssueRef returns null
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    expect(result.current.submitting).toBe(false);
+    expect(fetchMock.mock.calls.length).toBe(callsBefore); // no POST or refetch triggered
+  });
+
   it("handleEnqueue with LINK provider sends link issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

@@ -28,6 +28,16 @@ describe("useConfigPanel", () => {
     expect(result.current.error).toBe("forbidden");
   });
 
+  it("extracts error from JSON body when initial fetch returns non-ok with JSON error object", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, text: () => Promise.resolve('{"error":"config unavailable"}'),
+    }));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // parseError in fetchConfig extracts the message — user sees "config unavailable" not raw JSON
+    expect(result.current.error).toBe("config unavailable");
+  });
+
   it("isDirty is false when draft matches config", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(baseConfig)));
     const { result } = renderHook(() => useConfigPanel());
