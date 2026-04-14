@@ -284,4 +284,62 @@ mod tests {
     fn derive_queue_path_root_config() {
         assert_eq!(derive_queue_path("config.toml"), "/queue.json");
     }
+
+    #[test]
+    fn config_save_and_reload_round_trip() {
+        let path = format!("/tmp/state-test-config-{}.toml", uuid::Uuid::new_v4());
+        let mut state = AppState {
+            config_path: path.clone(),
+            queue_path: "/tmp/state-test-queue.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig {
+                workers_count: 8,
+                log_level: "debug".into(),
+                enabled_agents: vec!["review".into(), "qa".into()],
+            },
+        };
+        state.save_config().expect("save_config must succeed");
+        state.config = DaemonConfig::default(); // wipe in-memory config
+        state.reload_config();
+        assert_eq!(state.config.workers_count, 8);
+        assert_eq!(state.config.log_level, "debug");
+        assert_eq!(state.config.enabled_agents, vec!["review", "qa"]);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn config_reload_falls_back_to_defaults_when_file_missing() {
+        let path = "/tmp/nonexistent-config-state-test.toml".to_string();
+        let _ = std::fs::remove_file(&path);
+        let mut state = AppState {
+            config_path: path.clone(),
+            queue_path: "/tmp/state-test-queue.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 99, log_level: "trace".into(), enabled_agents: vec![] },
+        };
+        state.reload_config(); // file doesn't exist → falls back to defaults
+        assert_eq!(state.config.workers_count, 4); // default
+        assert_eq!(state.config.log_level, "info"); // default
+    }
+
+    #[test]
+    fn running_tasks_are_re_queued_on_load() {
+        // Create a unique temp dir so config path and queue path are both isolated.
+        let dir = format!("/tmp/team-state-test-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        let queue_path = format!("{dir}/queue.json"); // matches derive_queue_path output
+
+        // Write a queue file with a RUNNING task (status=1)
+        let json = r#"[{"id":"t1","issue_ref":null,"status":1,"priority":0,"created_at":null,"updated_at":null}]"#;
+        std::fs::write(&queue_path, json).unwrap();
+
+        let state = AppState::new(config_path);
+        assert_eq!(state.queue.len(), 1);
+        assert_eq!(state.queue[0].status, TaskStatus::Queued as i32, "RUNNING tasks must be reset to QUEUED on load");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
