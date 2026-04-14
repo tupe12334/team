@@ -425,6 +425,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn shutdown_returns_ok_before_exit_fires() {
+        // shutdown() spawns a delayed process::exit(0) and immediately returns Ok.
+        // In the current_thread Tokio test runtime, the spawned 100 ms sleep is not
+        // yet ready when block_on completes, so the runtime drops it — exit never fires.
+        let svc = DaemonServiceImpl::new(make_state(4));
+        let res = svc.shutdown(Request::new(())).await.unwrap().into_inner();
+        assert!(
+            matches!(res.result.unwrap(), shutdown_response::Result::Ok(())),
+            "shutdown must return Ok immediately before the delayed exit fires"
+        );
+    }
+
+    #[tokio::test]
     async fn update_config_deduplicates_enabled_agents() {
         let state = make_state(4);
         let svc = DaemonServiceImpl::new(state.clone());
