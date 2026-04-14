@@ -274,4 +274,19 @@ mod tests {
     async fn empty_url_returns_err() {
         assert!(resolve("").await.is_err());
     }
+
+    /// Centy URL where the path segment after org/project is not "issues" —
+    /// exercises the `kind != "issues"` guard in try_centy → Ok(None) → Err.
+    #[tokio::test]
+    async fn centy_wrong_kind_returns_err() {
+        assert!(resolve("https://app.centy.io/acme/proj/boards/5").await.is_err());
+    }
+
+    /// Trailing slash after "issues/" produces an empty number_raw;
+    /// the .filter(|s| !s.is_empty()) guard returns None → Ok(None) → Err.
+    /// Mirrors the existing github_missing_number_returns_err test.
+    #[tokio::test]
+    async fn centy_missing_number_returns_err() {
+        assert!(resolve("https://app.centy.io/acme/proj/issues/").await.is_err());
+    }
 }
