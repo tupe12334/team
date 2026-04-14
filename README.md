@@ -6,7 +6,7 @@
 
 ## Features
 
-- **Issue tracker integration** — enqueue tasks from GitHub, Centy.io, Jira, or any URL
+- **Issue tracker integration** — enqueue tasks from GitHub, Centy.io, or any URL (Jira URLs are detected but not yet executable by worktree-io)
 - **Centy auto-polling** — the daemon watches Centy for issues with status "in queue" and enqueues them automatically every 30 s; once a task finishes it stays in the queue for 7 days to prevent re-dispatch
 - **35 gstack agents** — each task can be assigned a named agent skill (review, qa, ship, plan-eng-review, …) passed as `TEAM_AGENT` to `worktree-io` hooks
 - **Configurable worker pool** — set how many agents run in parallel; optional `enabled_agents` list restricts the dropdown to a subset
@@ -87,10 +87,7 @@ team queue-service enqueue \
   --issue-ref-centy-repository <repo> \
   --issue-ref-centy-number <id>
 
-# Enqueue a task (Jira)
-team queue-service enqueue --issue-ref-jira --issue-ref-jira-id PROJ-123
-
-# Enqueue a task (URL — resolved automatically)
+# Enqueue a task (URL — resolved automatically; GitHub and Centy URLs are supported)
 team queue-service enqueue --issue-ref-link --issue-ref-link-url https://github.com/org/repo/issues/42
 
 # List the queue
