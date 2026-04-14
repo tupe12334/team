@@ -541,6 +541,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn execute_agent_exercises_spawn_path_for_github_ref() {
+        // Exercises lines that no other test reaches: the `match cmd.status().await`
+        // arms (both Ok and Err), the `cmd.env("TEAM_AGENT", a)` branch, and the
+        // `eprintln!` on non-zero exit / spawn failure.
+        //
+        // The result depends on the environment:
+        //   - `worktree` not in PATH → Err(spawn failed) → false
+        //   - `worktree` in PATH but `open` fails → Ok(non-zero) → false
+        // In both cases execute_agent must return false without panicking.
+        let result = execute_agent(
+            Some(github_ref("team-ci-nonexistent", "repo", "99999")),
+            Some("review".into()),
+        ).await;
+        assert!(!result, "execute_agent must return false when worktree is unavailable or open fails");
+    }
+
+    #[tokio::test]
     async fn finish_task_frees_worker_even_when_task_already_removed() {
         // Simulate a task that was deleted while it was running (admin forced removal).
         // The worker slot must still be freed so capacity is not permanently lost.
