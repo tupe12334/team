@@ -315,6 +315,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enqueue_issue_ref_with_no_inner_ref_is_rejected() {
+        // `issue_ref` is present but its oneof `ref` field is None (the client sent an
+        // empty IssueRefInput without setting any variant).
+        // `req.issue_ref.and_then(|r| r.r#ref)` yields None via the inner None path —
+        // a different code path to the same "issue_ref is required" arm than when
+        // `issue_ref` itself is None (outer None, covered by enqueue_missing_issue_ref_is_rejected).
+        let svc = QueueServiceImpl::new(make_state());
+        let req = Request::new(EnqueueRequest {
+            issue_ref: Some(IssueRefInput { r#ref: None }),
+            agent: None,
+            priority: None,
+        });
+        let res = svc.enqueue(req).await.unwrap().into_inner();
+        assert_error(res.result, "required");
+    }
+
+    #[tokio::test]
     async fn enqueue_github_ref_succeeds() {
         let svc = QueueServiceImpl::new(make_state());
         let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Github(GitHubIssueRef {
