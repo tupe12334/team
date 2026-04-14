@@ -243,6 +243,21 @@ describe("useQueuePanel", () => {
     expect(fetchMock.mock.calls.length).toBe(callsBefore); // no POST or refetch triggered
   });
 
+  it("handleEnqueue does nothing when repo is empty with other fields filled (buildIssueRef OR guard)", async () => {
+    const fetchMock = makeFetch(tasks, agents);
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setNumber("42"); });
+    // repo is still "" — one empty field in the OR guard → buildIssueRef returns null
+    const callsBefore = fetchMock.mock.calls.length;
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    expect(result.current.submitting).toBe(false);
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
+  });
+
   it("handleEnqueue does nothing when LINK provider has empty url (buildIssueRef returns null)", async () => {
     const fetchMock = makeFetch(tasks, agents);
     vi.stubGlobal("fetch", fetchMock);
