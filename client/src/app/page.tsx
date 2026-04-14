@@ -3,6 +3,10 @@ import DaemonPanel from "@/components/DaemonPanel";
 import QueuePanel from "@/components/QueuePanel";
 import WorkersPanel from "@/components/WorkersPanel";
 
+// Force server-render on every request so process.env is read at runtime,
+// not baked in at build time (DAEMON_ADDR is a runtime env var in Docker).
+export const dynamic = "force-dynamic";
+
 // eslint-disable-next-line no-restricted-syntax
 const daemonAddr = process.env.DAEMON_ADDR ?? (process.env.DAEMON_PORT ? `[::1]:${process.env.DAEMON_PORT}` : null);
 
