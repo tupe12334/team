@@ -116,6 +116,21 @@ describe("useConfigPanel", () => {
     expect(result.current.draft).toEqual(baseConfig);
   });
 
+  it("handleReset does nothing when config is null (if (config) false branch)", async () => {
+    // When the initial fetch fails, config stays null. Calling handleReset() must be a
+    // no-op — `if (config)` is false, so setDraft is never called and draft remains null.
+    // The existing "handleReset restores draft to config" test only covers the truthy arm
+    // (config is loaded successfully → setDraft(config) fires).
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, text: () => Promise.resolve("forbidden") }));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // config is null (fetch failed); draft is also null
+    expect(result.current.draft).toBeNull();
+    act(() => { result.current.handleReset(); });
+    // handleReset must not change draft — no setDraft call when config is null
+    expect(result.current.draft).toBeNull();
+  });
+
   it("handleSave PATCHes config and sets saved flag", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const updated = { workersCount: 8, logLevel: "debug", enabledAgents: ["review"] };
