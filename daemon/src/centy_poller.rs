@@ -413,6 +413,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn extract_no_leading_slash_with_two_components() {
+        // "org/repo" splits to ["org", "repo"] — no leading empty string.
+        // The [.., org, repo] pattern matches with ..=[], org="org", repo="repo".
+        // This is a distinct slice size from "/org/repo" which splits to
+        // ["", "org", "repo"] (..=[""]); both reach the same match arm but the
+        // existing extract_short_path test only covers the 3-element case.
+        assert_eq!(
+            extract_org_repo("org/repo"),
+            ("org".into(), "repo".into())
+        );
+    }
+
     fn make_state_with_path(queue_path: &str) -> Arc<Mutex<AppState>> {
         Arc::new(Mutex::new(AppState {
             config_path: "/tmp/test.toml".into(),

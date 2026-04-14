@@ -320,4 +320,22 @@ mod tests {
         // Only org and project present — no kind segment at all.
         assert!(resolve("https://app.centy.io/acme/proj").await.is_err());
     }
+
+    /// URL on an Atlassian domain that has no "/browse/" segment at all:
+    /// `url.split("/browse/").nth(1)` returns None — exercises the `?` operator's
+    /// None arm in try_jira, which is a different code path to the empty-id guard
+    /// in jira_missing_issue_key_returns_err (which has "/browse/" but no key after).
+    #[tokio::test]
+    async fn jira_url_with_atlassian_domain_but_no_browse_segment_returns_err() {
+        assert!(resolve("https://acme.atlassian.net/board/sprint/5").await.is_err());
+    }
+
+    /// Centy URL with only the org segment (no project): the `let Some(project) =
+    /// parts.next().filter(|s| !s.is_empty())` guard returns None → Ok(None) → Err.
+    /// The existing centy_url_short_path_returns_err covers org+project (no kind);
+    /// this test covers the earlier guard where project itself is missing.
+    #[tokio::test]
+    async fn centy_url_with_only_org_segment_returns_err() {
+        assert!(resolve("https://app.centy.io/acme").await.is_err());
+    }
 }
