@@ -78,6 +78,18 @@ describe("useConfigPanel", () => {
     expect(result.current.isDirty).toBeTruthy();
   });
 
+  it("isDirty is true when logLevel differs from config", async () => {
+    // The isDirty condition uses three || arms: workersCount, logLevel, enabledAgents.
+    // "isDirty is true when workersCount differs" covers the first arm;
+    // "isDirty is true when enabledAgents differs" covers the third arm.
+    // This test covers the second arm specifically, ensuring logLevel changes are detected.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(baseConfig)));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...baseConfig, logLevel: "debug" }); });
+    expect(result.current.isDirty).toBeTruthy();
+  });
+
   it("isDirty is true when enabledAgents differs from config", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(baseConfig)));
     const { result } = renderHook(() => useConfigPanel());
