@@ -90,7 +90,7 @@ impl QueueService for QueueServiceImpl {
             }));
         }
 
-        if req.priority.map_or(false, |p| p < 0) {
+        if req.priority.is_some_and(|p| p < 0) {
             return Ok(Response::new(EnqueueResponse {
                 result: Some(enqueue_response::Result::Error(
                     "priority must be >= 0".to_string(),

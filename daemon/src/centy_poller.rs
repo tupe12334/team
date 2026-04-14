@@ -76,10 +76,10 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
         );
     }
 
-    if enqueued > 0 {
-        if let Err(e) = s.save_queue() {
-            eprintln!("[centy_poller] failed to persist {enqueued} auto-enqueued task(s): {e}");
-        }
+    if enqueued > 0
+        && let Err(e) = s.save_queue()
+    {
+        eprintln!("[centy_poller] failed to persist {enqueued} auto-enqueued task(s): {e}");
     }
 }
 
