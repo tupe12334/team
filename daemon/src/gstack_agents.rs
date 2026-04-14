@@ -41,11 +41,6 @@ static AGENTS: &[AgentDef] = &[
     AgentDef { name: "unfreeze", description: "Clear the freeze boundary set by freeze, allowing edits to all directories again." },
 ];
 
-#[allow(dead_code)]
-pub fn all() -> &'static [AgentDef] {
-    AGENTS
-}
-
 /// Returns all agents if `enabled` is empty, otherwise filters to only those listed.
 pub fn filter(enabled: &[String]) -> Vec<&'static AgentDef> {
     if enabled.is_empty() {

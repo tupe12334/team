@@ -44,12 +44,25 @@ impl QueueService for QueueServiceImpl {
             Some(issue_ref_input::Ref::Centy(c)) => {
                 Some(IssueRef { r#ref: Some(issue_ref::Ref::Centy(c)) })
             }
-            Some(issue_ref_input::Ref::Jira(j)) => {
-                Some(IssueRef { r#ref: Some(issue_ref::Ref::Jira(j)) })
+            Some(issue_ref_input::Ref::Jira(_)) => {
+                return Ok(Response::new(EnqueueResponse {
+                    result: Some(enqueue_response::Result::Error(
+                        "Jira issues are not supported by worktree-io; use GitHub or Centy".to_string(),
+                    )),
+                }));
             }
             Some(issue_ref_input::Ref::Link(l)) => {
                 match link_resolver::resolve(&l.url) {
-                    Ok(resolved) => Some(resolved),
+                    Ok(resolved) => {
+                        if matches!(&resolved.r#ref, Some(issue_ref::Ref::Jira(_))) {
+                            return Ok(Response::new(EnqueueResponse {
+                                result: Some(enqueue_response::Result::Error(
+                                    "Jira issues are not supported by worktree-io; use GitHub or Centy".to_string(),
+                                )),
+                            }));
+                        }
+                        Some(resolved)
+                    }
                     Err(msg) => {
                         return Ok(Response::new(EnqueueResponse {
                             result: Some(enqueue_response::Result::Error(msg)),
