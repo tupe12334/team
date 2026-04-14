@@ -78,6 +78,13 @@ impl DaemonService for DaemonServiceImpl {
                 log_level: "info".to_string(),
                 enabled_agents: Vec::new(),
             });
+        if new_config.workers_count < 1 {
+            return Ok(Response::new(UpdateConfigResponse {
+                result: Some(update_config_response::Result::Error(
+                    "workers_count must be at least 1".to_string(),
+                )),
+            }));
+        }
         let mut state = self.state.lock().await;
         state.config = new_config.clone();
         if let Err(e) = state.save_config() {
@@ -178,6 +185,36 @@ mod tests {
         };
         assert_eq!(updated.workers_count, 4);
         assert_eq!(updated.log_level, "info");
+    }
+
+    #[tokio::test]
+    async fn update_config_rejects_zero_workers_count() {
+        let svc = DaemonServiceImpl::new(make_state(4));
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig { workers_count: 0, log_level: "info".into(), enabled_agents: vec![] }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Error(msg) => {
+                assert!(msg.contains("workers_count"), "expected validation error, got: {msg}");
+            }
+            update_config_response::Result::Ok(_) => panic!("expected error but got ok"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_config_rejects_negative_workers_count() {
+        let svc = DaemonServiceImpl::new(make_state(4));
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig { workers_count: -1, log_level: "info".into(), enabled_agents: vec![] }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Error(msg) => {
+                assert!(msg.contains("workers_count"), "expected validation error, got: {msg}");
+            }
+            update_config_response::Result::Ok(_) => panic!("expected error but got ok"),
+        }
     }
 
     #[tokio::test]

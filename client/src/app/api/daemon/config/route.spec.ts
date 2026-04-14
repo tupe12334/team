@@ -54,4 +54,17 @@ describe("PATCH /api/daemon/config", () => {
     const res = await PATCH(req);
     expect(res.status).toBe(502);
   });
+
+  it("returns 502 when daemon rejects validation (zero workers_count)", async () => {
+    mockUpdateConfig.mockRejectedValueOnce(new Error("workers_count must be at least 1"));
+    const req = new Request("http://localhost/api/daemon/config", {
+      method: "PATCH",
+      body: JSON.stringify({ workersCount: 0, logLevel: "info", enabledAgents: [] }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("workers_count");
+  });
 });
