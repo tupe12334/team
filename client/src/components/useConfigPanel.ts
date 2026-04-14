@@ -51,12 +51,12 @@ export function useConfigPanel() {
     intervalRef.current = setInterval(async () => {
       try {
         const res = await fetch("/api/daemon/config");
-        if (!res.ok) return;
+        if (!res.ok) { setError(parseError(await res.text())); return; }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const data: DaemonConfig = await res.json();
         setConfig(data);
         setError(null);
-      } catch { /* ignore transient poll errors */ }
+      } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     }, 10000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [fetchConfig]);

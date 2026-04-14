@@ -136,4 +136,35 @@ describe("useConfigPanel", () => {
     act(() => { result.current.setDraft({ ...configWithAgents, enabledAgents: ["review", "ship"] }); });
     expect(result.current.isDirty).toBeTruthy();
   });
+
+  it("polling sets error when daemon becomes unavailable during background refresh", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve(JSON.stringify({ error: "daemon unavailable" })) });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBeNull();
+    act(() => { vi.advanceTimersByTime(10000); });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(result.current.error).toBe("daemon unavailable");
+    expect(result.current.draft).toEqual(baseConfig);
+  });
+
+  it("polling clears error when daemon recovers after a failed poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve(JSON.stringify({ error: "daemon down" })) })
+      .mockResolvedValueOnce(okFetch(baseConfig));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { vi.advanceTimersByTime(10000); });
+    await waitFor(() => expect(result.current.error).toBe("daemon down"));
+    act(() => { vi.advanceTimersByTime(10000); });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(result.current.error).toBeNull();
+  });
 });
