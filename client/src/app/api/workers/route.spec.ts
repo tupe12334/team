@@ -55,6 +55,15 @@ describe("GET /api/workers", () => {
     expect(body.workers[1].taskStartedAt).toBeNull();
   });
 
+  it("returns 400 when gRPC call returns an application error (ApiError)", async () => {
+    const { ApiError } = await import("@/lib/grpc/client");
+    mockGetStatus.mockRejectedValueOnce(new ApiError("worker service error"));
+    const res = await GET();
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("worker service error");
+  });
+
   it("returns 502 on error", async () => {
     mockGetStatus.mockRejectedValueOnce(new Error("worker service down"));
     const res = await GET();

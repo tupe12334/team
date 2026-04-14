@@ -29,6 +29,15 @@ describe("GET /api/daemon/info", () => {
     expect(body.error).toBe("timeout");
   });
 
+  it("returns 400 when gRPC call returns an application error (ApiError)", async () => {
+    const { ApiError } = await import("@/lib/grpc/client");
+    mockGetInfo.mockRejectedValueOnce(new ApiError("daemon error"));
+    const res = await GET();
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("daemon error");
+  });
+
   it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
     mockGetInfo.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
     const res = await GET();
