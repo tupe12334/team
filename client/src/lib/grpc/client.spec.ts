@@ -15,6 +15,8 @@ import {
   daemonGetInfo,
   daemonShutdown,
   daemonReloadConfig,
+  daemonGetConfig,
+  daemonUpdateConfig,
   daemonGetAvailableAgents,
   queueList,
   queueEnqueue,
@@ -158,5 +160,38 @@ describe("daemonReloadConfig", () => {
   it("throws ApiError on error response", async () => {
     mockGrpcCall.mockResolvedValueOnce({ error: "reload failed" });
     await expect(daemonReloadConfig()).rejects.toThrow(ApiError);
+  });
+});
+
+describe("daemonGetConfig", () => {
+  it("returns config on success", async () => {
+    const config = { workersCount: 4, logLevel: "info", enabledAgents: [] };
+    mockGrpcCall.mockResolvedValueOnce({ ok: config });
+    const result = await daemonGetConfig();
+    expect(result).toEqual(config);
+  });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "config unavailable" });
+    await expect(daemonGetConfig()).rejects.toThrow(ApiError);
+  });
+
+  it("throws EmptyResponseError when response has neither ok nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(daemonGetConfig()).rejects.toThrow(EmptyResponseError);
+  });
+});
+
+describe("daemonUpdateConfig", () => {
+  it("returns updated config on success", async () => {
+    const config = { workersCount: 2, logLevel: "debug", enabledAgents: ["review", "qa"] };
+    mockGrpcCall.mockResolvedValueOnce({ ok: config });
+    const result = await daemonUpdateConfig(config);
+    expect(result).toEqual(config);
+  });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "update failed" });
+    await expect(daemonUpdateConfig({ workersCount: 1, logLevel: "info", enabledAgents: [] })).rejects.toThrow(ApiError);
   });
 });

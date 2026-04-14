@@ -2,13 +2,13 @@ use crate::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, IssueRef, JiraIssue
 
 /// Resolve a raw link URL to a concrete IssueRef.
 /// Returns an error string if the URL doesn't match any known provider pattern.
-pub fn resolve(url: &str) -> Result<IssueRef, String> {
-    try_github(url)
-        .or_else(|| try_jira(url))
-        .or_else(|| try_centy(url))
-        .ok_or_else(|| {
-            format!("cannot resolve link to a known issue provider (github/jira/centy): {url}")
-        })
+pub async fn resolve(url: &str) -> Result<IssueRef, String> {
+    if let Some(r) = try_github(url).or_else(|| try_jira(url)) {
+        return Ok(r);
+    }
+    try_centy(url).await?.ok_or_else(|| {
+        format!("cannot resolve link to a known issue provider (github/jira/centy): {url}")
+    })
 }
 
 fn try_github(url: &str) -> Option<IssueRef> {
@@ -52,28 +52,98 @@ fn try_jira(url: &str) -> Option<IssueRef> {
     })
 }
 
-fn try_centy(url: &str) -> Option<IssueRef> {
-    // https://app.centy.io/{org}/{project}/issues/{id}
-    let path = url
+/// Returns `Ok(None)` if the URL doesn't match the Centy pattern.
+/// Returns `Ok(Some(_))` on success.
+/// Returns `Err(_)` if the URL matches but UUID-to-display-number resolution fails.
+///
+/// Centy URLs embed the item UUID rather than the display number, e.g.
+/// `https://app.centy.io/acme/proj/issues/6f4853a9-3d82-4013-b909-c2d637f44541`.
+/// When a UUID is detected the centy CLI is queried to obtain the integer
+/// display number that `worktree open centy:<n>` requires.
+async fn try_centy(url: &str) -> Result<Option<IssueRef>, String> {
+    let path = match url
         .strip_prefix("https://app.centy.io/")
-        .or_else(|| url.strip_prefix("http://app.centy.io/"))?;
+        .or_else(|| url.strip_prefix("http://app.centy.io/"))
+    {
+        Some(p) => p,
+        None => return Ok(None),
+    };
     let mut parts = path.splitn(5, '/');
-    let org = parts.next().filter(|s| !s.is_empty())?;
-    let project = parts.next().filter(|s| !s.is_empty())?;
-    let kind = parts.next()?;
+    let Some(org) = parts.next().filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let Some(project) = parts.next().filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let Some(kind) = parts.next() else {
+        return Ok(None);
+    };
     if kind != "issues" {
-        return None;
+        return Ok(None);
     }
-    let number_raw = parts.next().filter(|s| !s.is_empty())?;
-    let number = number_raw.split('?').next().unwrap_or(number_raw);
-    let number = number.split('#').next().unwrap_or(number);
-    Some(IssueRef {
+    let Some(number_raw) = parts.next().filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    let id = number_raw.split('?').next().unwrap_or(number_raw);
+    let id = id.split('#').next().unwrap_or(id);
+
+    let number = if is_uuid(id) {
+        resolve_centy_uuid(id).await?
+    } else {
+        id.to_string()
+    };
+
+    Ok(Some(IssueRef {
         r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
             organization: org.to_string(),
             repository: project.to_string(),
-            number: number.to_string(),
+            number,
         })),
-    })
+    }))
+}
+
+/// Returns true if `s` matches the canonical UUID format: 8-4-4-4-12 lowercase hex chars.
+fn is_uuid(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 5 {
+        return false;
+    }
+    let expected_lengths = [8usize, 4, 4, 4, 12];
+    parts
+        .iter()
+        .zip(expected_lengths.iter())
+        .all(|(p, &len)| p.len() == len && p.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+/// Calls `centy get issue <uuid> --global --json` and extracts the integer
+/// display number, which is what `worktree open centy:<n>` requires.
+async fn resolve_centy_uuid(uuid: &str) -> Result<String, String> {
+    let output = tokio::process::Command::new("centy")
+        .args(["get", "issue", uuid, "--global", "--json"])
+        .output()
+        .await
+        .map_err(|e| format!("failed to spawn centy to resolve UUID {uuid}: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    let json_start = match stdout.find('{') {
+        Some(pos) => pos,
+        None => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!(
+                "centy returned no JSON when resolving UUID {uuid}: {stderr}"
+            ));
+        }
+    };
+
+    let response: serde_json::Value = serde_json::from_str(&stdout[json_start..])
+        .map_err(|e| format!("failed to parse centy JSON for UUID {uuid}: {e}"))?;
+
+    // Response shape: SearchItemsResponse { items: [{ item: { metadata: { displayNumber: N } } }] }
+    response["items"][0]["item"]["metadata"]["displayNumber"]
+        .as_i64()
+        .map(|n| n.to_string())
+        .ok_or_else(|| format!("UUID {uuid} not found in any tracked centy project"))
 }
 
 #[cfg(test)]
@@ -82,76 +152,152 @@ mod tests {
     use crate::proto::issue_ref;
 
     fn github(org: &str, repo: &str, number: &str) -> IssueRef {
-        IssueRef { r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
-            organization: org.into(), repository: repo.into(), number: number.into(),
-        }))}
+        IssueRef {
+            r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
+                organization: org.into(),
+                repository: repo.into(),
+                number: number.into(),
+            })),
+        }
     }
     fn jira(id: &str) -> IssueRef {
         IssueRef { r#ref: Some(issue_ref::Ref::Jira(JiraIssueRef { id: id.into() })) }
     }
     fn centy(org: &str, repo: &str, number: &str) -> IssueRef {
-        IssueRef { r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
-            organization: org.into(), repository: repo.into(), number: number.into(),
-        }))}
+        IssueRef {
+            r#ref: Some(issue_ref::Ref::Centy(CentyIssueRef {
+                organization: org.into(),
+                repository: repo.into(),
+                number: number.into(),
+            })),
+        }
+    }
+
+    #[tokio::test]
+    async fn github_issues_url() {
+        assert_eq!(
+            resolve("https://github.com/acme/my-repo/issues/42").await.unwrap(),
+            github("acme", "my-repo", "42")
+        );
+    }
+    #[tokio::test]
+    async fn github_pull_url() {
+        assert_eq!(
+            resolve("https://github.com/acme/my-repo/pull/7").await.unwrap(),
+            github("acme", "my-repo", "7")
+        );
+    }
+    #[tokio::test]
+    async fn github_url_strips_query_and_fragment() {
+        assert_eq!(
+            resolve("https://github.com/acme/my-repo/issues/99?ref=foo#bar").await.unwrap(),
+            github("acme", "my-repo", "99")
+        );
+    }
+    #[tokio::test]
+    async fn github_http_scheme() {
+        assert_eq!(
+            resolve("http://github.com/acme/my-repo/issues/1").await.unwrap(),
+            github("acme", "my-repo", "1")
+        );
+    }
+    #[tokio::test]
+    async fn github_missing_number_returns_err() {
+        assert!(resolve("https://github.com/acme/my-repo/issues/").await.is_err());
+    }
+    #[tokio::test]
+    async fn github_wrong_kind_returns_err() {
+        assert!(resolve("https://github.com/acme/my-repo/blob/main/README.md").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn jira_atlassian_url() {
+        assert_eq!(
+            resolve("https://acme.atlassian.net/browse/PROJ-123").await.unwrap(),
+            jira("PROJ-123")
+        );
+    }
+    #[tokio::test]
+    async fn jira_jira_com_url() {
+        assert_eq!(
+            resolve("https://acme.jira.com/browse/BUG-7").await.unwrap(),
+            jira("BUG-7")
+        );
+    }
+    #[tokio::test]
+    async fn jira_url_strips_query() {
+        assert_eq!(
+            resolve("https://acme.atlassian.net/browse/PROJ-99?selected=tab").await.unwrap(),
+            jira("PROJ-99")
+        );
+    }
+
+    #[tokio::test]
+    async fn centy_url() {
+        assert_eq!(
+            resolve("https://app.centy.io/acme/my-project/issues/5").await.unwrap(),
+            centy("acme", "my-project", "5")
+        );
+    }
+    #[tokio::test]
+    async fn centy_http_scheme() {
+        assert_eq!(
+            resolve("http://app.centy.io/acme/proj/issues/3").await.unwrap(),
+            centy("acme", "proj", "3")
+        );
+    }
+    #[tokio::test]
+    async fn centy_url_strips_query() {
+        assert_eq!(
+            resolve("https://app.centy.io/acme/proj/issues/10?foo=bar").await.unwrap(),
+            centy("acme", "proj", "10")
+        );
+    }
+
+    /// UUID URLs must trigger centy CLI resolution, not fall through to "unknown provider".
+    /// In a unit-test environment the centy CLI may not be present; the error must come
+    /// from the resolution attempt, not from the provider-matching logic.
+    #[tokio::test]
+    async fn centy_uuid_url_attempts_resolution() {
+        let result =
+            resolve("https://app.centy.io/acme/proj/issues/6f4853a9-3d82-4013-b909-c2d637f44541")
+                .await;
+        match result {
+            Ok(_) => {} // centy resolved it (integration environment)
+            Err(e) => {
+                assert!(
+                    !e.starts_with("cannot resolve link"),
+                    "expected a centy resolution error, got: {e}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_url_returns_err() {
+        assert!(resolve("https://gitlab.com/acme/repo/-/issues/1").await.is_err());
+    }
+    #[tokio::test]
+    async fn empty_url_returns_err() {
+        assert!(resolve("").await.is_err());
     }
 
     #[test]
-    fn github_issues_url() {
-        assert_eq!(resolve("https://github.com/acme/my-repo/issues/42").unwrap(), github("acme", "my-repo", "42"));
-    }
-    #[test]
-    fn github_pull_url() {
-        assert_eq!(resolve("https://github.com/acme/my-repo/pull/7").unwrap(), github("acme", "my-repo", "7"));
-    }
-    #[test]
-    fn github_url_strips_query_and_fragment() {
-        assert_eq!(resolve("https://github.com/acme/my-repo/issues/99?ref=foo#bar").unwrap(), github("acme", "my-repo", "99"));
-    }
-    #[test]
-    fn github_http_scheme() {
-        assert_eq!(resolve("http://github.com/acme/my-repo/issues/1").unwrap(), github("acme", "my-repo", "1"));
-    }
-    #[test]
-    fn github_missing_number_returns_err() {
-        assert!(resolve("https://github.com/acme/my-repo/issues/").is_err());
-    }
-    #[test]
-    fn github_wrong_kind_returns_err() {
-        assert!(resolve("https://github.com/acme/my-repo/blob/main/README.md").is_err());
+    fn is_uuid_valid() {
+        assert!(is_uuid("6f4853a9-3d82-4013-b909-c2d637f44541"));
+        assert!(is_uuid("00000000-0000-0000-0000-000000000000"));
     }
 
     #[test]
-    fn jira_atlassian_url() {
-        assert_eq!(resolve("https://acme.atlassian.net/browse/PROJ-123").unwrap(), jira("PROJ-123"));
-    }
-    #[test]
-    fn jira_jira_com_url() {
-        assert_eq!(resolve("https://acme.jira.com/browse/BUG-7").unwrap(), jira("BUG-7"));
-    }
-    #[test]
-    fn jira_url_strips_query() {
-        assert_eq!(resolve("https://acme.atlassian.net/browse/PROJ-99?selected=tab").unwrap(), jira("PROJ-99"));
+    fn is_uuid_rejects_plain_integers() {
+        assert!(!is_uuid("42"));
+        assert!(!is_uuid("5"));
     }
 
     #[test]
-    fn centy_url() {
-        assert_eq!(resolve("https://app.centy.io/acme/my-project/issues/5").unwrap(), centy("acme", "my-project", "5"));
-    }
-    #[test]
-    fn centy_http_scheme() {
-        assert_eq!(resolve("http://app.centy.io/acme/proj/issues/3").unwrap(), centy("acme", "proj", "3"));
-    }
-    #[test]
-    fn centy_url_strips_query() {
-        assert_eq!(resolve("https://app.centy.io/acme/proj/issues/10?foo=bar").unwrap(), centy("acme", "proj", "10"));
-    }
-
-    #[test]
-    fn unknown_url_returns_err() {
-        assert!(resolve("https://gitlab.com/acme/repo/-/issues/1").is_err());
-    }
-    #[test]
-    fn empty_url_returns_err() {
-        assert!(resolve("").is_err());
+    fn is_uuid_rejects_malformed() {
+        assert!(!is_uuid("not-a-uuid"));
+        assert!(!is_uuid("6f4853a9-3d82-4013-b909")); // too short
+        assert!(!is_uuid("6f4853a9-3d82-4013-b909-c2d637f44541-extra")); // too long
     }
 }

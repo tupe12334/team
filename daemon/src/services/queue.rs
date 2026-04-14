@@ -52,7 +52,7 @@ impl QueueService for QueueServiceImpl {
                 }));
             }
             Some(issue_ref_input::Ref::Link(l)) => {
-                match link_resolver::resolve(&l.url) {
+                match link_resolver::resolve(&l.url).await {
                     Ok(resolved) => {
                         if matches!(&resolved.r#ref, Some(issue_ref::Ref::Jira(_))) {
                             return Ok(Response::new(EnqueueResponse {
