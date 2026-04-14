@@ -523,6 +523,23 @@ mod tests {
         assert!(s.workers.is_empty(), "worker slot must be freed even when save fails");
     }
 
+    // --- execute_agent tests ---
+
+    #[tokio::test]
+    async fn execute_agent_returns_false_when_no_issue_ref() {
+        // First branch: issue_ref is None → immediate false without spawning anything.
+        let result = execute_agent(None, None).await;
+        assert!(!result, "execute_agent must return false when there is no issue_ref");
+    }
+
+    #[tokio::test]
+    async fn execute_agent_returns_false_for_jira_ref() {
+        // Jira refs are not supported by worktree-io (to_worktree_ref returns None),
+        // so execute_agent must return false without attempting to spawn a process.
+        let result = execute_agent(Some(jira_ref("PROJ-42")), None).await;
+        assert!(!result, "execute_agent must return false for Jira refs");
+    }
+
     #[tokio::test]
     async fn finish_task_frees_worker_even_when_task_already_removed() {
         // Simulate a task that was deleted while it was running (admin forced removal).

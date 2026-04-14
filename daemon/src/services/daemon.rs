@@ -391,6 +391,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn update_config_accepts_workers_count_of_one() {
+        // 1 is the minimum valid value; the guard is `< 1`, so exactly 1 must pass.
+        let svc = DaemonServiceImpl::new(make_state(4));
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Ok(c) => assert_eq!(c.workers_count, 1),
+            update_config_response::Result::Error(e) => panic!("expected ok for workers_count=1, got: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn update_config_rejects_empty_string_in_enabled_agents() {
+        // An empty string is not a known agent name; is_known("") returns false.
+        let svc = DaemonServiceImpl::new(make_state(4));
+        let req = Request::new(UpdateConfigRequest {
+            config: Some(DaemonConfig {
+                workers_count: 4,
+                log_level: "info".into(),
+                enabled_agents: vec!["".into()],
+            }),
+        });
+        let res = svc.update_config(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_config_response::Result::Error(msg) => {
+                assert!(msg.contains("unknown agent"), "expected unknown-agent error, got: {msg}");
+            }
+            update_config_response::Result::Ok(_) => panic!("expected error for empty-string agent"),
+        }
+    }
+
+    #[tokio::test]
     async fn update_config_deduplicates_enabled_agents() {
         let state = make_state(4);
         let svc = DaemonServiceImpl::new(state.clone());

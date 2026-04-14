@@ -226,6 +226,40 @@ mod tests {
         assert!(serde_json::from_str::<IssueRefJson>(r#""unknown:stuff""#).is_err());
     }
 
+    #[test]
+    fn parse_github_missing_hash_errors() {
+        // No '#' separator — split_once('#') returns None → "missing '#' in github ref"
+        match IssueRefJson::parse("github:acme/backend") {
+            Err(e) => assert!(e.contains("missing '#'"), "got: {e}"),
+            Ok(_) => panic!("expected parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_github_missing_slash_errors() {
+        // Has '#' but no '/' in the repo path — split_once('/') fails → "missing '/' in github ref"
+        match IssueRefJson::parse("github:backend#42") {
+            Err(e) => assert!(e.contains("missing '/'"), "got: {e}"),
+            Ok(_) => panic!("expected parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_centy_missing_hash_errors() {
+        match IssueRefJson::parse("centy:acme/proj") {
+            Err(e) => assert!(e.contains("missing '#'"), "got: {e}"),
+            Ok(_) => panic!("expected parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_centy_missing_slash_errors() {
+        match IssueRefJson::parse("centy:proj#7") {
+            Err(e) => assert!(e.contains("missing '/'"), "got: {e}"),
+            Ok(_) => panic!("expected parse error"),
+        }
+    }
+
     // --- Legacy object format (backward compat) ---
 
     #[test]
