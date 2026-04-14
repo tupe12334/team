@@ -124,10 +124,14 @@ impl DaemonService for DaemonServiceImpl {
         _request: Request<()>,
     ) -> Result<Response<ReloadConfigResponse>, Status> {
         let mut state = self.state.lock().await;
-        state.reload_config();
-        Ok(Response::new(ReloadConfigResponse {
-            result: Some(reload_config_response::Result::Ok(())),
-        }))
+        match state.reload_config() {
+            Ok(()) => Ok(Response::new(ReloadConfigResponse {
+                result: Some(reload_config_response::Result::Ok(())),
+            })),
+            Err(msg) => Ok(Response::new(ReloadConfigResponse {
+                result: Some(reload_config_response::Result::Error(msg)),
+            })),
+        }
     }
 }
 
@@ -269,6 +273,31 @@ mod tests {
         let svc = DaemonServiceImpl::new(make_state(4));
         let res = svc.reload_config(Request::new(())).await.unwrap().into_inner();
         assert!(matches!(res.result.unwrap(), reload_config_response::Result::Ok(())));
+    }
+
+    #[tokio::test]
+    async fn reload_config_returns_error_for_malformed_toml() {
+        let path = format!("/tmp/daemon-svc-reload-malformed-{}.toml", uuid::Uuid::new_v4());
+        std::fs::write(&path, "this is [[[not valid toml").unwrap();
+        let state = Arc::new(Mutex::new(crate::state::AppState {
+            config_path: path.clone(),
+            queue_path: "/tmp/daemon-svc-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 3, log_level: "warn".into(), enabled_agents: vec![] },
+        }));
+        let svc = DaemonServiceImpl::new(state.clone());
+        let res = svc.reload_config(Request::new(())).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            reload_config_response::Result::Error(msg) => {
+                assert!(msg.contains("malformed config"), "expected malformed-config error, got: {msg}");
+            }
+            reload_config_response::Result::Ok(_) => panic!("expected error for malformed TOML"),
+        }
+        // Config must be unchanged — workers_count still 3
+        let locked = state.lock().await;
+        assert_eq!(locked.config.workers_count, 3, "config must not change on failed reload");
+        let _ = std::fs::remove_file(&path);
     }
 
     #[tokio::test]

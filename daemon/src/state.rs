@@ -127,8 +127,22 @@ impl AppState {
         std::fs::write(&self.config_path, contents).map_err(|e| e.to_string())
     }
 
-    pub fn reload_config(&mut self) {
-        self.config = Self::load_config(&self.config_path);
+    /// Reload config from disk. Returns an error if the file exists but is malformed.
+    /// A missing file is treated as "use defaults" (same as startup) and returns Ok.
+    pub fn reload_config(&mut self) -> Result<(), String> {
+        match std::fs::read_to_string(&self.config_path) {
+            Ok(contents) => {
+                self.config = toml::from_str::<ConfigFile>(&contents)
+                    .map_err(|e| format!("malformed config at '{}': {e}", self.config_path))?
+                    .into();
+                Ok(())
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                self.config = ConfigFile::default().into();
+                Ok(())
+            }
+            Err(e) => Err(format!("failed to read config at '{}': {e}", self.config_path)),
+        }
     }
 
     fn load_queue(path: &str) -> Vec<Task> {
@@ -301,7 +315,7 @@ mod tests {
         };
         state.save_config().expect("save_config must succeed");
         state.config = DaemonConfig::default(); // wipe in-memory config
-        state.reload_config();
+        state.reload_config().expect("reload_config must succeed for valid file");
         assert_eq!(state.config.workers_count, 8);
         assert_eq!(state.config.log_level, "debug");
         assert_eq!(state.config.enabled_agents, vec!["review", "qa"]);
@@ -319,9 +333,27 @@ mod tests {
             workers: Vec::new(),
             config: DaemonConfig { workers_count: 99, log_level: "trace".into(), enabled_agents: vec![] },
         };
-        state.reload_config(); // file doesn't exist → falls back to defaults
+        state.reload_config().expect("missing file must not be an error"); // falls back to defaults
         assert_eq!(state.config.workers_count, 4); // default
         assert_eq!(state.config.log_level, "info"); // default
+    }
+
+    #[test]
+    fn reload_config_returns_err_for_malformed_toml() {
+        let path = format!("/tmp/team-reload-malformed-{}.toml", uuid::Uuid::new_v4());
+        std::fs::write(&path, "this is [[[not valid toml").unwrap();
+        let mut state = AppState {
+            config_path: path.clone(),
+            queue_path: "/tmp/state-test-queue.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 7, log_level: "warn".into(), enabled_agents: vec![] },
+        };
+        let err = state.reload_config().expect_err("malformed TOML must return Err");
+        assert!(err.contains("malformed config"), "error should describe the problem, got: {err}");
+        // Config must not have changed — still the original values
+        assert_eq!(state.config.workers_count, 7, "config must be unchanged after failed reload");
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]
