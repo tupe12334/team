@@ -267,6 +267,17 @@ mod tests {
         assert!(!is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
     }
 
+    /// Exercises the inner `Some(issue_ref::Ref::Centy(_))` guard when the outer
+    /// `issue_ref` is `Some` but the inner `r#ref` field is `None` — the middle
+    /// failure path between `issue_ref: None` (outer None) and `r#ref: Some(Github(...))`
+    /// (inner wrong variant).  A malformed or default-constructed IssueRef can produce this.
+    #[test]
+    fn is_present_false_for_task_with_issue_ref_but_no_inner_ref() {
+        let mut task = centy_task("acme", "backend", "7");
+        task.issue_ref = Some(IssueRef { r#ref: None });
+        assert!(!is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
+    }
+
     #[test]
     fn is_present_false_for_empty_queue() {
         assert!(!is_centy_issue_present(&[], &centy_issue("acme", "backend", "7")));
