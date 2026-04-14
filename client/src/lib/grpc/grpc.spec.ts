@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { ServiceError } from "@grpc/grpc-js";
+import { grpcHttpStatus } from "./grpc";
 
 describe("getDaemonAddr", () => {
   const OLD_ENV = { ...process.env };
@@ -34,6 +35,16 @@ describe("getDaemonAddr", () => {
     const { getQueueClient } = await import("./grpc");
     expect(() => getQueueClient()).not.toThrow();
   });
+});
+
+describe("grpcHttpStatus", () => {
+  it("returns 404 for NOT_FOUND (code 5)", () => { expect(grpcHttpStatus({ code: 5 })).toBe(404); });
+  it("returns 409 for FAILED_PRECONDITION (code 9)", () => { expect(grpcHttpStatus({ code: 9 })).toBe(409); });
+  it("returns 400 for INVALID_ARGUMENT (code 3)", () => { expect(grpcHttpStatus({ code: 3 })).toBe(400); });
+  it("returns 503 for UNAVAILABLE (code 14)", () => { expect(grpcHttpStatus({ code: 14 })).toBe(503); });
+  it("returns 502 for unknown gRPC codes", () => { expect(grpcHttpStatus({ code: 99 })).toBe(502); });
+  it("returns 502 for plain errors without a code", () => { expect(grpcHttpStatus(new Error("network"))).toBe(502); });
+  it("returns 502 for null", () => { expect(grpcHttpStatus(null)).toBe(502); });
 });
 
 describe("grpcCall", () => {

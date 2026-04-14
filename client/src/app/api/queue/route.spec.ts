@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/grpc/client", () => ({
-  queueList: vi.fn(),
-  queueEnqueue: vi.fn(),
-}));
+vi.mock("@/lib/grpc/client", () => {
+  class ApiError extends Error {}
+  return {
+    ApiError,
+    queueList: vi.fn(),
+    queueEnqueue: vi.fn(),
+  };
+});
 
-import { queueList, queueEnqueue } from "@/lib/grpc/client";
+import { ApiError, queueList, queueEnqueue } from "@/lib/grpc/client";
 import { GET, POST } from "./route";
 
 const mockList = vi.mocked(queueList);
@@ -58,6 +62,19 @@ describe("POST /api/queue", () => {
     expect(res.status).toBe(400);
     const body = await res.json() as { error: string };
     expect(body.error).toBe("issueRef is required");
+  });
+
+  it("returns 400 when daemon returns a validation ApiError", async () => {
+    mockEnqueue.mockRejectedValueOnce(new ApiError("unknown agent 'bad'"));
+    const req = new Request("http://localhost/api/queue", {
+      method: "POST",
+      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: "1" } }, agent: "bad" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req as never);
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("unknown agent");
   });
 
   it("returns 502 on gRPC error", async () => {

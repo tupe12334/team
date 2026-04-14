@@ -1,5 +1,5 @@
 /* eslint-disable single-export/single-export */
-import { credentials, ServiceError } from "@grpc/grpc-js";
+import { credentials, ServiceError, status as GrpcStatus } from "@grpc/grpc-js";
 import { AgentServiceClient } from "@/gen/agents";
 import { DaemonServiceClient } from "@/gen/daemon";
 import { QueueServiceClient } from "@/gen/queue";
@@ -34,6 +34,21 @@ export const getQueueClient = () =>
   (_queue ??= new QueueServiceClient(getDaemonAddr(), credentials.createInsecure()));
 export const getWorkerClient = () =>
   (_worker ??= new WorkerServiceClient(getDaemonAddr(), credentials.createInsecure()));
+
+/**
+ * Maps a gRPC ServiceError status code to the most appropriate HTTP status.
+ * Falls back to 502 for transport errors or unknown status codes.
+ */
+export function grpcHttpStatus(err: unknown): number {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const code = (err as { code: number }).code;
+    if (code === GrpcStatus.NOT_FOUND) return 404;
+    if (code === GrpcStatus.FAILED_PRECONDITION) return 409;
+    if (code === GrpcStatus.INVALID_ARGUMENT) return 400;
+    if (code === GrpcStatus.UNAVAILABLE) return 503;
+  }
+  return 502;
+}
 
 /** Promisified gRPC unary call. */
 export function grpcCall<TRes>(

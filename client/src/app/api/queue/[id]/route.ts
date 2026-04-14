@@ -1,6 +1,7 @@
 /* eslint-disable single-export/single-export */
 import { NextRequest, NextResponse } from "next/server";
-import { queueUpdateTask, queueRemoveTask } from "@/lib/grpc/client";
+import { queueUpdateTask, queueRemoveTask, ApiError } from "@/lib/grpc/client";
+import { grpcHttpStatus } from "@/lib/grpc/grpc";
 
 export async function PATCH(
   req: NextRequest,
@@ -14,7 +15,8 @@ export async function PATCH(
     return NextResponse.json(task);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    const s = err instanceof ApiError ? 400 : grpcHttpStatus(err);
+    return NextResponse.json({ error: message }, { status: s });
   }
 }
 
@@ -28,6 +30,7 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    const s = err instanceof ApiError ? 400 : grpcHttpStatus(err);
+    return NextResponse.json({ error: message }, { status: s });
   }
 }

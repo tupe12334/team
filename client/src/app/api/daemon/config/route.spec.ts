@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/grpc/client", () => ({
-  daemonGetConfig: vi.fn(),
-  daemonUpdateConfig: vi.fn(),
-}));
+vi.mock("@/lib/grpc/client", () => {
+  class ApiError extends Error {}
+  return {
+    ApiError,
+    daemonGetConfig: vi.fn(),
+    daemonUpdateConfig: vi.fn(),
+  };
+});
 
-import { daemonGetConfig, daemonUpdateConfig } from "@/lib/grpc/client";
+import { ApiError, daemonGetConfig, daemonUpdateConfig } from "@/lib/grpc/client";
 import { GET, PATCH } from "./route";
 
 const mockGetConfig = vi.mocked(daemonGetConfig);
@@ -44,7 +48,7 @@ describe("PATCH /api/daemon/config", () => {
     expect(mockUpdateConfig).toHaveBeenCalledWith(updated);
   });
 
-  it("returns 502 on gRPC error", async () => {
+  it("returns 502 on gRPC transport error", async () => {
     mockUpdateConfig.mockRejectedValueOnce(new Error("save failed"));
     const req = new Request("http://localhost/api/daemon/config", {
       method: "PATCH",
@@ -55,15 +59,15 @@ describe("PATCH /api/daemon/config", () => {
     expect(res.status).toBe(502);
   });
 
-  it("returns 502 when daemon rejects validation (zero workers_count)", async () => {
-    mockUpdateConfig.mockRejectedValueOnce(new Error("workers_count must be at least 1"));
+  it("returns 400 when daemon rejects validation (ApiError)", async () => {
+    mockUpdateConfig.mockRejectedValueOnce(new ApiError("workers_count must be at least 1"));
     const req = new Request("http://localhost/api/daemon/config", {
       method: "PATCH",
       body: JSON.stringify({ workersCount: 0, logLevel: "info", enabledAgents: [] }),
       headers: { "Content-Type": "application/json" },
     });
     const res = await PATCH(req);
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(400);
     const body = await res.json() as { error: string };
     expect(body.error).toContain("workers_count");
   });

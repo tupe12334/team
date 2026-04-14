@@ -1,6 +1,8 @@
 /* eslint-disable single-export/single-export */
 import { NextResponse } from "next/server";
-import { daemonGetConfig, daemonUpdateConfig, DaemonConfig } from "@/lib/grpc/client";
+import { daemonGetConfig, daemonUpdateConfig, ApiError } from "@/lib/grpc/client";
+import { grpcHttpStatus } from "@/lib/grpc/grpc";
+import type { DaemonConfig } from "@/lib/grpc/client";
 
 export async function GET() {
   try {
@@ -8,7 +10,7 @@ export async function GET() {
     return NextResponse.json(config);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: grpcHttpStatus(err) });
   }
 }
 
@@ -20,6 +22,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json(config);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    const s = err instanceof ApiError ? 400 : grpcHttpStatus(err);
+    return NextResponse.json({ error: message }, { status: s });
   }
 }

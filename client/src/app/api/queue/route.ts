@@ -1,6 +1,7 @@
 /* eslint-disable single-export/single-export */
 import { NextRequest, NextResponse } from "next/server";
-import { queueList, queueEnqueue } from "@/lib/grpc/client";
+import { queueList, queueEnqueue, ApiError } from "@/lib/grpc/client";
+import { grpcHttpStatus } from "@/lib/grpc/grpc";
 import type { IssueRefInput } from "@/lib/grpc/client";
 
 export async function GET() {
@@ -9,7 +10,7 @@ export async function GET() {
     return NextResponse.json(tasks);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: grpcHttpStatus(err) });
   }
 }
 
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(task, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 502 });
+    const s = err instanceof ApiError ? 400 : grpcHttpStatus(err);
+    return NextResponse.json({ error: message }, { status: s });
   }
 }
