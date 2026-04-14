@@ -152,6 +152,23 @@ describe("useConfigPanel", () => {
     expect(result.current.draft).toEqual(baseConfig);
   });
 
+  it("polling sets error when fetch throws a network error (catch path)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // initial fetchConfig succeeds; poll tick: fetch() itself rejects → polling catch(e) fires
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      .mockRejectedValueOnce(new Error("network failure"));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBeNull();
+    act(() => { vi.advanceTimersByTime(10000); });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(result.current.error).toBe("network failure");
+    // draft is preserved — polling catch does not clear it
+    expect(result.current.draft).toEqual(baseConfig);
+  });
+
   it("polling clears error when daemon recovers after a failed poll", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn()

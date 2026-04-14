@@ -194,6 +194,20 @@ describe("useQueuePanel", () => {
     expect(result.current.deletingId).toBeNull();
   });
 
+  it("sets hardcoded fallback message when agents fetch throws a non-Error value", async () => {
+    // loadAgents().catch: e instanceof Error is false → "failed to load agents"
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      if (url === "/api/agents") return Promise.reject("not an error object");
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.agents).toEqual([]);
+    expect(result.current.error).toBe("failed to load agents");
+  });
+
   it("handleEnqueue with LINK provider sends link issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

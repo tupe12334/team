@@ -52,6 +52,15 @@ describe("useWorkersPanel", () => {
     expect(result.current.data).toBeNull();
   });
 
+  it("sets error when fetch throws a network error directly", async () => {
+    // fetch() itself rejects — exercises catch(e) with e instanceof Error path
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connection reset")));
+    const { result } = renderHook(() => useWorkersPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBe("connection reset");
+  });
+
   it("polls every 5 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn().mockResolvedValue({
