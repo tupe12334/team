@@ -325,6 +325,13 @@ mod tests {
     }
 
     #[test]
+    fn derive_queue_path_empty_config_uses_default() {
+        // Path::new("").parent() returns None — map() gives None — unwrap_or_default()
+        // takes the None arm and returns String::default() = "".
+        assert_eq!(derive_queue_path(""), "/queue.json");
+    }
+
+    #[test]
     fn config_save_and_reload_round_trip() {
         let path = format!("/tmp/state-test-config-{}.toml", uuid::Uuid::new_v4());
         let mut state = AppState {

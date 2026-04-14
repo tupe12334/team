@@ -291,6 +291,17 @@ mod tests {
         assert_eq!(j.to_string(), "jira:BUG-99");
     }
 
+    #[test]
+    fn parse_legacy_unknown_type_returns_error() {
+        // visit_map delegates to IssueRefJsonLegacy::deserialize via MapAccessDeserializer.
+        // When the `type` field doesn't match any known variant, serde returns an error
+        // and the `?` at line 102 propagates it back to the caller — making from_str fail.
+        // All existing legacy-object tests use known types (github, centy, jira, link);
+        // this exercises the `?`-early-return branch in visit_map for the first time.
+        let json = r#"{"type":"unknown_provider","id":"foo"}"#;
+        assert!(serde_json::from_str::<IssueRefJson>(json).is_err());
+    }
+
     // --- Proto conversion round-trips ---
 
     #[test]
