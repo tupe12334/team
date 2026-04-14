@@ -36,6 +36,7 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
     }
 
     let mut s = state.lock().await;
+    let before_len = s.queue.len();
     let mut enqueued = 0u32;
 
     for issue in issues {
@@ -79,7 +80,9 @@ async fn poll_once(state: &Arc<Mutex<AppState>>) {
     if enqueued > 0
         && let Err(e) = s.save_queue()
     {
-        eprintln!("[centy_poller] failed to persist {enqueued} auto-enqueued task(s): {e}");
+        // Roll back all newly pushed tasks so in-memory state stays consistent with disk.
+        s.queue.truncate(before_len);
+        eprintln!("[centy_poller] failed to persist {enqueued} auto-enqueued task(s): {e}; rolled back");
     }
 }
 

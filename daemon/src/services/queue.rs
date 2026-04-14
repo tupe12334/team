@@ -156,6 +156,11 @@ impl QueueService for QueueServiceImpl {
             .find(|t| t.id == req.task_id)
             .ok_or_else(|| Status::not_found("task not found"))?;
 
+        // Snapshot original values so we can roll back if the disk write fails.
+        let old_agent = task.agent.clone();
+        let old_priority = task.priority;
+        let old_updated_at = task.updated_at.clone();
+
         if let Some(agent) = req.agent {
             if !agent.is_empty() && !crate::gstack_agents::is_known(&agent) {
                 return Ok(Response::new(UpdateTaskResponse {
@@ -194,7 +199,15 @@ impl QueueService for QueueServiceImpl {
             nanos: 0,
         });
         let task = task.clone();
-        state.save_queue().map_err(Status::internal)?;
+        if let Err(e) = state.save_queue() {
+            // Roll back in-memory mutations so the queue stays consistent with disk.
+            if let Some(t) = state.queue.iter_mut().find(|t| t.id == task.id) {
+                t.agent = old_agent;
+                t.priority = old_priority;
+                t.updated_at = old_updated_at;
+            }
+            return Err(Status::internal(format!("failed to persist queue: {e}")));
+        }
         Ok(Response::new(UpdateTaskResponse {
             result: Some(update_task_response::Result::Task(task)),
         }))
@@ -528,6 +541,39 @@ mod tests {
         // Queue must be empty — the push must have been rolled back
         let locked = state.lock().await;
         assert!(locked.queue.is_empty(), "queue must be empty after rollback on save failure");
+    }
+
+    #[tokio::test]
+    async fn update_task_rolls_back_on_save_failure() {
+        // Enqueue with a writable path first, then swap to a path that cannot be written.
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "99").await;
+
+        // Set the original agent and priority so we have known values to check.
+        {
+            let mut s = state.lock().await;
+            let t = s.queue.iter_mut().find(|t| t.id == task_id).unwrap();
+            t.agent = Some("qa".into());
+            t.priority = 5;
+        }
+
+        // Now break the queue_path so save_queue will fail on the next write.
+        state.lock().await.queue_path = "/nonexistent-dir/queue.json".into();
+
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("review".into()),
+            priority: Some(99),
+        });
+        let res = svc.update_task(req).await;
+        // Must return a gRPC error because save failed
+        assert!(res.is_err(), "expected Status::internal when save_queue fails");
+        // In-memory task must still have the original values
+        let locked = state.lock().await;
+        let t = locked.queue.iter().find(|t| t.id == task_id).unwrap();
+        assert_eq!(t.agent, Some("qa".into()), "agent must be rolled back");
+        assert_eq!(t.priority, 5, "priority must be rolled back");
     }
 
     #[tokio::test]
