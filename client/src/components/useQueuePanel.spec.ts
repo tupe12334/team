@@ -47,6 +47,22 @@ describe("useQueuePanel", () => {
     expect(result.current.tasks).toEqual([]);
   });
 
+  it("returns raw text when queue fetch response JSON has no error field (parseError branch 2)", async () => {
+    // parseError has three branches:
+    //   1. JSON.parse succeeds AND typeof parsed.error === "string" → return parsed.error (tested via handleDelete)
+    //   2. JSON.parse succeeds BUT parsed.error is not a string → return raw text   ← this test
+    //   3. JSON.parse throws → return raw text (tested by "sets error when queue fetch fails")
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      return Promise.resolve({ ok: false, text: () => Promise.resolve('{"status":"queue service error"}'), json: () => Promise.resolve(null) });
+    }));
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // No .error string field → parseError returns the raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"queue service error"}');
+    expect(result.current.tasks).toEqual([]);
+  });
+
   it("handleDelete removes task on success", async () => {
     const fetchMock = makeFetch(tasks, agents);
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
