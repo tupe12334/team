@@ -323,6 +323,64 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enqueue_github_link_succeeds() {
+        // A GitHub URL is resolved synchronously by the link resolver — no network needed.
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Link(LinkRef {
+            url: "https://github.com/acme/app/issues/99".into(),
+        }))).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert!(!t.id.is_empty());
+                assert_eq!(t.status, TaskStatus::Queued as i32);
+                match t.issue_ref.unwrap().r#ref.unwrap() {
+                    issue_ref::Ref::Github(g) => {
+                        assert_eq!(g.organization, "acme");
+                        assert_eq!(g.repository, "app");
+                        assert_eq!(g.number, "99");
+                    }
+                    other => panic!("expected Github ref from link resolver, got {:?}", other),
+                }
+            }
+            enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn enqueue_centy_link_succeeds() {
+        // A Centy URL with a plain display number resolves synchronously.
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Link(LinkRef {
+            url: "https://app.centy.io/acme/proj/issues/5".into(),
+        }))).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert!(!t.id.is_empty());
+                assert_eq!(t.status, TaskStatus::Queued as i32);
+                match t.issue_ref.unwrap().r#ref.unwrap() {
+                    issue_ref::Ref::Centy(c) => {
+                        assert_eq!(c.organization, "acme");
+                        assert_eq!(c.repository, "proj");
+                        assert_eq!(c.number, "5");
+                    }
+                    other => panic!("expected Centy ref from link resolver, got {:?}", other),
+                }
+            }
+            enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn enqueue_unresolvable_link_returns_error() {
+        // An unknown provider URL fails the link resolver and surfaces as an error response.
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Link(LinkRef {
+            url: "https://gitlab.com/acme/app/-/issues/1".into(),
+        }))).await.unwrap().into_inner();
+        assert_error(res.result, "cannot resolve link");
+    }
+
+    #[tokio::test]
     async fn enqueue_centy_ref_succeeds() {
         let svc = QueueServiceImpl::new(make_state());
         let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Centy(CentyIssueRef {
