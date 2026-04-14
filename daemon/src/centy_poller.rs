@@ -337,6 +337,25 @@ mod tests {
     }
 
     #[test]
+    fn parse_item_returns_none_when_display_number_is_string() {
+        // as_i64() returns None for JSON strings — even if the string looks like a number.
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": "42", "priority": 0 },
+            "projectPath": "/home/user/dev/acme/backend"
+        });
+        assert!(parse_centy_item(&item).is_none());
+    }
+
+    #[test]
+    fn parse_item_returns_none_when_display_number_is_null() {
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": null },
+            "projectPath": "/home/user/dev/acme/backend"
+        });
+        assert!(parse_centy_item(&item).is_none());
+    }
+
+    #[test]
     fn extract_typical_path() {
         assert_eq!(
             extract_org_repo("/home/user/dev/github/acme/my-repo"),
@@ -376,6 +395,24 @@ mod tests {
         );
     }
 
+    #[test]
+    fn extract_root_slash_falls_back() {
+        // "/" trims to "" → single empty element → no org/repo → fallback
+        assert_eq!(
+            extract_org_repo("/"),
+            ("unknown".into(), "unknown".into())
+        );
+    }
+
+    #[test]
+    fn extract_single_component_with_leading_slash_falls_back() {
+        // "/repo" splits to ["", "repo"] → org="" fails the !org.is_empty() guard → fallback
+        assert_eq!(
+            extract_org_repo("/repo"),
+            ("unknown".into(), "unknown".into())
+        );
+    }
+
     fn make_state_with_path(queue_path: &str) -> Arc<Mutex<AppState>> {
         Arc::new(Mutex::new(AppState {
             config_path: "/tmp/test.toml".into(),
@@ -408,6 +445,23 @@ mod tests {
             other => panic!("expected Centy ref, got {other:?}"),
         }
         assert_eq!(task.status, TaskStatus::Queued as i32);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn enqueue_new_issues_propagates_priority_to_task() {
+        let path = format!("/tmp/test-centy-poller-{}.json", uuid::Uuid::new_v4());
+        let state = make_state_with_path(&path);
+        let issues = vec![CentyIssue {
+            organization: "acme".into(),
+            repository: "backend".into(),
+            number: "77".into(),
+            priority: 9,
+        }];
+        enqueue_new_issues(&state, issues).await;
+        let s = state.lock().await;
+        assert_eq!(s.queue.len(), 1);
+        assert_eq!(s.queue[0].priority, 9, "task priority must match the issue priority");
         let _ = std::fs::remove_file(&path);
     }
 
