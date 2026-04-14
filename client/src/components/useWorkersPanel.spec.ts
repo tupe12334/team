@@ -73,6 +73,16 @@ describe("useWorkersPanel", () => {
     expect(result.current.error).toBe("connection reset");
   });
 
+  it("sets error via String() when fetch throws a non-Error value", async () => {
+    // exercises the `e instanceof Error ? e.message : String(e)` catch branch
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue("workers network failure"));
+    const { result } = renderHook(() => useWorkersPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBe("workers network failure");
+  });
+
   it("polling clears error when daemon recovers after a failed poll", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn()

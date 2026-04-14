@@ -54,6 +54,17 @@ describe("useDaemonPanel", () => {
     expect(result.current.info).toBeNull();
   });
 
+  it("sets error and clears info when fetch throws a network error", async () => {
+    // fetch() itself rejects — exercises catch(e) with e instanceof Error path in fetchInfo.
+    // Existing tests only cover the ok:false path where ApiError is thrown inside the try block;
+    // this test exercises the rejection path that comes from a network-level failure.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network failure")));
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.info).toBeNull();
+    expect(result.current.error).toBe("network failure");
+  });
+
   it("polling clears error and restores info when daemon recovers", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
