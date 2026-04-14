@@ -35,6 +35,15 @@ describe("getDaemonAddr", () => {
     const { getQueueClient } = await import("./grpc");
     expect(() => getQueueClient()).not.toThrow();
   });
+
+  it("uses DAEMON_HOST when set instead of the [::1] default", async () => {
+    // Exercises the `process.env.DAEMON_HOST ?? "[::1]"` truthy branch in getDaemonAddr.
+    // The existing "builds address from DAEMON_PORT" test covers the ?? "[::1]" fallback.
+    process.env.DAEMON_PORT = "12345";
+    process.env.DAEMON_HOST = "192.168.1.1";
+    const { getWorkerClient } = await import("./grpc");
+    expect(() => getWorkerClient()).not.toThrow();
+  });
 });
 
 describe("grpcHttpStatus", () => {
