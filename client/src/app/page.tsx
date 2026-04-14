@@ -3,10 +3,8 @@ import DaemonPanel from "@/components/DaemonPanel";
 import QueuePanel from "@/components/QueuePanel";
 import WorkersPanel from "@/components/WorkersPanel";
 
-export const dynamic = "force-static";
-
 // eslint-disable-next-line no-restricted-syntax
-const daemonPort = process.env.DAEMON_PORT;
+const daemonAddr = process.env.DAEMON_ADDR ?? (process.env.DAEMON_PORT ? `[::1]:${process.env.DAEMON_PORT}` : null);
 
 export default function Home() {
   return (
@@ -34,7 +32,7 @@ export default function Home() {
 
       <footer className="home-footer border-t border-[#1c2736] py-4">
         <p className="home-footer-text text-center font-mono text-xs text-[#6e7681]">
-          gRPC → localhost:{daemonPort}
+          {daemonAddr ? `gRPC → ${daemonAddr}` : "gRPC port not configured"}
         </p>
       </footer>
     </div>
