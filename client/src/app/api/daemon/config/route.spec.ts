@@ -31,6 +31,12 @@ describe("GET /api/daemon/config", () => {
     const res = await GET();
     expect(res.status).toBe(502);
   });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockGetConfig.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const res = await GET();
+    expect(res.status).toBe(503);
+  });
 });
 
 describe("PATCH /api/daemon/config", () => {
@@ -70,5 +76,16 @@ describe("PATCH /api/daemon/config", () => {
     expect(res.status).toBe(400);
     const body = await res.json() as { error: string };
     expect(body.error).toContain("workers_count");
+  });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockUpdateConfig.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const req = new Request("http://localhost/api/daemon/config", {
+      method: "PATCH",
+      body: JSON.stringify({ workersCount: 2, logLevel: "info", enabledAgents: [] }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PATCH(req);
+    expect(res.status).toBe(503);
   });
 });

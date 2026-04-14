@@ -31,6 +31,12 @@ describe("GET /api/queue", () => {
     const res = await GET();
     expect(res.status).toBe(502);
   });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockList.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const res = await GET();
+    expect(res.status).toBe(503);
+  });
 });
 
 describe("POST /api/queue", () => {
@@ -86,5 +92,16 @@ describe("POST /api/queue", () => {
     });
     const res = await POST(req as never);
     expect(res.status).toBe(502);
+  });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockEnqueue.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const req = new Request("http://localhost/api/queue", {
+      method: "POST",
+      body: JSON.stringify({ issueRef: { github: { organization: "acme", repository: "app", number: "1" } } }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req as never);
+    expect(res.status).toBe(503);
   });
 });

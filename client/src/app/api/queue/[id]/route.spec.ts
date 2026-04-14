@@ -59,6 +59,17 @@ describe("PATCH /api/queue/[id]", () => {
     const res = await PATCH(req as never, makeParams("t1"));
     expect(res.status).toBe(502);
   });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockUpdate.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const req = new Request("http://localhost/api/queue/t1", {
+      method: "PATCH",
+      body: JSON.stringify({}),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await PATCH(req as never, makeParams("t1"));
+    expect(res.status).toBe(503);
+  });
 });
 
 describe("DELETE /api/queue/[id]", () => {
@@ -91,5 +102,12 @@ describe("DELETE /api/queue/[id]", () => {
     const req = new Request("http://localhost/api/queue/t1", { method: "DELETE" });
     const res = await DELETE(req as never, makeParams("t1"));
     expect(res.status).toBe(502);
+  });
+
+  it("returns 503 when daemon is unavailable (gRPC UNAVAILABLE)", async () => {
+    mockRemove.mockRejectedValueOnce(Object.assign(new Error("daemon down"), { code: 14 }));
+    const req = new Request("http://localhost/api/queue/t1", { method: "DELETE" });
+    const res = await DELETE(req as never, makeParams("t1"));
+    expect(res.status).toBe(503);
   });
 });
