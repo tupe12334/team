@@ -99,6 +99,24 @@ describe("useWorkersPanel", () => {
     expect(result.current.data).toEqual(workerData);
   });
 
+  it("returns raw text when response JSON has no error field (parseError branch 2)", async () => {
+    // parseError has three branches:
+    //   1. JSON.parse succeeds AND typeof parsed.error === "string" → return parsed.error (tested above)
+    //   2. JSON.parse succeeds BUT parsed.error is not a string → return raw text   ← this test
+    //   3. JSON.parse throws → return raw text
+    // Branch 2 fires when an API returns valid JSON without a top-level "error" string —
+    // the user sees the raw JSON rather than a formatted message, which is the correct fallback.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      text: () => Promise.resolve('{"status":"workers crashed"}'),
+    }));
+    const { result } = renderHook(() => useWorkersPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toBeNull();
+    // No .error string field → parseError returns the raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"workers crashed"}');
+  });
+
   it("polls every 5 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn().mockResolvedValue({
