@@ -79,14 +79,15 @@ impl QueueService for QueueServiceImpl {
             }
         };
         // Validate agent name before acquiring the state lock.
-        if let Some(ref agent_name) = req.agent {
-            if !agent_name.is_empty() && !crate::gstack_agents::is_known(agent_name) {
-                return Ok(Response::new(EnqueueResponse {
-                    result: Some(enqueue_response::Result::Error(
-                        format!("unknown agent '{agent_name}'; use GetAvailableAgents to list valid agents"),
-                    )),
-                }));
-            }
+        if let Some(ref agent_name) = req.agent
+            && !agent_name.is_empty()
+            && !crate::gstack_agents::is_known(agent_name)
+        {
+            return Ok(Response::new(EnqueueResponse {
+                result: Some(enqueue_response::Result::Error(
+                    format!("unknown agent '{agent_name}'; use GetAvailableAgents to list valid agents"),
+                )),
+            }));
         }
 
         let task = Task {
@@ -100,17 +101,16 @@ impl QueueService for QueueServiceImpl {
         };
         let mut state = self.state.lock().await;
         // If enabled_agents is configured, the chosen agent must be in the allowed set.
-        if let Some(ref agent_name) = task.agent {
-            if !agent_name.is_empty()
-                && !state.config.enabled_agents.is_empty()
-                && !state.config.enabled_agents.iter().any(|a| a == agent_name)
-            {
-                return Ok(Response::new(EnqueueResponse {
-                    result: Some(enqueue_response::Result::Error(
-                        format!("agent '{agent_name}' is not in the enabled agents list"),
-                    )),
-                }));
-            }
+        if let Some(ref agent_name) = task.agent
+            && !agent_name.is_empty()
+            && !state.config.enabled_agents.is_empty()
+            && !state.config.enabled_agents.iter().any(|a| a == agent_name)
+        {
+            return Ok(Response::new(EnqueueResponse {
+                result: Some(enqueue_response::Result::Error(
+                    format!("agent '{agent_name}' is not in the enabled agents list"),
+                )),
+            }));
         }
         state.queue.push(task.clone());
         state.save_queue().map_err(Status::internal)?;
@@ -177,12 +177,12 @@ impl QueueService for QueueServiceImpl {
         let req = request.into_inner();
         let mut state = self.state.lock().await;
         // Refuse to delete a task that a worker is actively executing.
-        if let Some(task) = state.queue.iter().find(|t| t.id == req.task_id) {
-            if task.status == TaskStatus::Running as i32 {
-                return Err(Status::failed_precondition(
-                    "cannot remove a running task; wait for it to complete or restart the daemon to re-queue it",
-                ));
-            }
+        if let Some(task) = state.queue.iter().find(|t| t.id == req.task_id)
+            && task.status == TaskStatus::Running as i32
+        {
+            return Err(Status::failed_precondition(
+                "cannot remove a running task; wait for it to complete or restart the daemon to re-queue it",
+            ));
         }
         let before = state.queue.len();
         state.queue.retain(|t| t.id != req.task_id);
