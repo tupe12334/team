@@ -283,6 +283,41 @@ describe("useQueuePanel", () => {
     expect(result.current.tasks).toEqual(tasks);
   });
 
+  it("fetchTasks sets error via String() when fetch rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in fetchTasks catch — the String(e) branch
+    // (existing "sets error when queue fetch fails" only covers the ok:false → ApiError → e.message path)
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      // GET /api/queue rejects with a non-Error value
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject("queue connection refused");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.tasks).toEqual([]);
+    expect(result.current.error).toBe("queue connection refused");
+  });
+
+  it("handleDelete sets error via String() when fetch rejects with a non-Error value", async () => {
+    // exercises `e instanceof Error ? e.message : String(e)` in handleDelete catch — the String(e) branch
+    // (existing "handleDelete catches thrown network errors" uses new Error → e.message branch)
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "DELETE")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      // DELETE rejects with a non-Error value
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject("delete connection refused");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleDelete("t1"); });
+    expect(result.current.error).toBe("delete connection refused");
+    expect(result.current.deletingId).toBeNull();
+  });
+
   it("handleEnqueue with LINK provider sends link issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

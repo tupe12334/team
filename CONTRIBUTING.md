@@ -100,7 +100,7 @@ pnpm --prefix client dev
 
 ```bash
 make lint    # proto generation + go vet (CLI + MCP), cargo clippy (daemon + TUI), ESLint
-make test    # proto generation + tsc --noEmit, Vitest (143 tests), cargo test (172 daemon + 22 TUI tests)
+make test    # proto generation + tsc --noEmit, Vitest (145 tests), cargo test (172 daemon + 22 TUI tests)
 make build   # proto generation + compile CLI, MCP, daemon, TUI, Next.js
 ```
 
