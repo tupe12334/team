@@ -90,8 +90,9 @@
       "Bash(git mv:*)",
       "Bash(wc:*)",
       "Skill(ralph-loop:ralph-loop)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(docker run:*)"
     ],
-    "deny": ["mcp__centy__centy_v1_CentyDaemon_CreateOrgIssue"]
+    "deny": []
   }
 }

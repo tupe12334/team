@@ -7,6 +7,14 @@ import type { AgentInfo } from "@/lib/grpc/client";
 export class ApiError extends Error {}
 export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
 
+function parseError(raw: string): string {
+  try {
+    // eslint-disable-next-line no-restricted-syntax
+    const parsed = JSON.parse(raw) as { error?: string };
+    return typeof parsed.error === "string" ? parsed.error : raw;
+  } catch { return raw; }
+}
+
 export interface Task {
   id: string; issueRef?: IssueRef; agent?: string;
   status: number; priority: number; createdAt?: string; updatedAt?: string;
@@ -41,7 +49,7 @@ export function useQueuePanel() {
   const fetchTasks = useCallback(async () => {
     try {
       const res = await fetch("/api/queue");
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setTasks(await res.json()); setError(null);
     } catch (e) {
@@ -68,7 +76,7 @@ export function useQueuePanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ issueRef, agent: agent.trim() || undefined, priority: priority || undefined }),
       });
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setUrl(""); setAgent(""); setPriority(0);
       await fetchTasks();
     } catch (e) {

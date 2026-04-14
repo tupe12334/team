@@ -9,6 +9,15 @@ export interface DaemonConfig {
 
 export class ApiError extends Error {}
 
+// Routes return { error: string } JSON; extract the message so users don't see raw JSON.
+function parseError(raw: string): string {
+  try {
+    // eslint-disable-next-line no-restricted-syntax
+    const parsed = JSON.parse(raw) as { error?: string };
+    return typeof parsed.error === "string" ? parsed.error : raw;
+  } catch { return raw; }
+}
+
 export function useConfigPanel() {
   const [config, setConfig] = useState<DaemonConfig | null>(null);
   const [draft, setDraft] = useState<DaemonConfig | null>(null);
@@ -20,7 +29,7 @@ export function useConfigPanel() {
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/daemon/config");
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const data: DaemonConfig = await res.json();
       setConfig(data);
@@ -50,7 +59,7 @@ export function useConfigPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const updated: DaemonConfig = await res.json();
       setConfig(updated);

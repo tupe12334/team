@@ -3,6 +3,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export class ApiError extends Error {}
 
+function parseError(raw: string): string {
+  try {
+    // eslint-disable-next-line no-restricted-syntax
+    const parsed = JSON.parse(raw) as { error?: string };
+    return typeof parsed.error === "string" ? parsed.error : raw;
+  } catch { return raw; }
+}
+
 export interface WorkerInfo {
   workerId: string;
   status: "IDLE" | "BUSY";
@@ -27,7 +35,7 @@ export function useWorkersPanel() {
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/workers");
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setData(await res.json());
       setError(null);

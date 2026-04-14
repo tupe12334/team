@@ -10,6 +10,14 @@ export interface DaemonInfo {
 
 export class ApiError extends Error {}
 
+function parseError(raw: string): string {
+  try {
+    // eslint-disable-next-line no-restricted-syntax
+    const parsed = JSON.parse(raw) as { error?: string };
+    return typeof parsed.error === "string" ? parsed.error : raw;
+  } catch { return raw; }
+}
+
 export function useDaemonPanel() {
   const [info, setInfo] = useState<DaemonInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +29,7 @@ export function useDaemonPanel() {
   const fetchInfo = useCallback(async () => {
     try {
       const res = await fetch("/api/daemon/info");
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setInfo(await res.json());
       setError(null);
@@ -43,7 +51,7 @@ export function useDaemonPanel() {
     setReloading(true);
     try {
       const res = await fetch("/api/daemon/reload", { method: "POST" });
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
       await fetchInfo();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -57,7 +65,7 @@ export function useDaemonPanel() {
     setShuttingDown(true);
     try {
       const res = await fetch("/api/daemon/shutdown", { method: "POST" });
-      if (!res.ok) throw new ApiError(await res.text());
+      if (!res.ok) throw new ApiError(parseError(await res.text()));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
