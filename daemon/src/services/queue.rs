@@ -150,6 +150,36 @@ impl QueueService for QueueServiceImpl {
         let mut state = self.state.lock().await;
         // Extract enabled_agents before taking the mutable task borrow.
         let enabled_agents = state.config.enabled_agents.clone();
+
+        // --- Validate all inputs before making any mutations ---
+        // This prevents partial in-memory state updates when a later validation fails.
+        if let Some(ref agent) = req.agent {
+            if !agent.is_empty() && !crate::gstack_agents::is_known(agent) {
+                return Ok(Response::new(UpdateTaskResponse {
+                    result: Some(update_task_response::Result::Error(
+                        format!("unknown agent '{agent}'; use GetAvailableAgents to list valid agents"),
+                    )),
+                }));
+            }
+            if !agent.is_empty()
+                && !enabled_agents.is_empty()
+                && !enabled_agents.iter().any(|a| a == agent)
+            {
+                return Ok(Response::new(UpdateTaskResponse {
+                    result: Some(update_task_response::Result::Error(
+                        format!("agent '{agent}' is not in the enabled agents list"),
+                    )),
+                }));
+            }
+        }
+        if req.priority.is_some_and(|p| p < 0) {
+            return Ok(Response::new(UpdateTaskResponse {
+                result: Some(update_task_response::Result::Error(
+                    "priority must be >= 0".to_string(),
+                )),
+            }));
+        }
+
         let task = state
             .queue
             .iter_mut()
@@ -161,34 +191,11 @@ impl QueueService for QueueServiceImpl {
         let old_priority = task.priority;
         let old_updated_at = task.updated_at;
 
+        // All inputs are valid — apply mutations.
         if let Some(agent) = req.agent {
-            if !agent.is_empty() && !crate::gstack_agents::is_known(&agent) {
-                return Ok(Response::new(UpdateTaskResponse {
-                    result: Some(update_task_response::Result::Error(
-                        format!("unknown agent '{agent}'; use GetAvailableAgents to list valid agents"),
-                    )),
-                }));
-            }
-            if !agent.is_empty()
-                && !enabled_agents.is_empty()
-                && !enabled_agents.iter().any(|a| a == &agent)
-            {
-                return Ok(Response::new(UpdateTaskResponse {
-                    result: Some(update_task_response::Result::Error(
-                        format!("agent '{agent}' is not in the enabled agents list"),
-                    )),
-                }));
-            }
             task.agent = Some(agent);
         }
         if let Some(priority) = req.priority {
-            if priority < 0 {
-                return Ok(Response::new(UpdateTaskResponse {
-                    result: Some(update_task_response::Result::Error(
-                        "priority must be >= 0".to_string(),
-                    )),
-                }));
-            }
             task.priority = priority;
         }
         task.updated_at = Some(prost_types::Timestamp {
@@ -683,6 +690,62 @@ mod tests {
         let t = locked.queue.iter().find(|t| t.id == task_id).unwrap();
         assert_eq!(t.agent, Some("qa".into()), "agent must be rolled back");
         assert_eq!(t.priority, 5, "priority must be rolled back");
+    }
+
+    /// Regression: update_task used to mutate task.agent before validating priority,
+    /// leaving in-memory state inconsistent with disk when priority was invalid.
+    /// Both fields must remain unchanged when any validation fails.
+    #[tokio::test]
+    async fn update_task_no_in_memory_mutation_when_priority_invalid() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "42").await;
+
+        // Confirm initial state: agent is None
+        {
+            let s = state.lock().await;
+            let t = s.queue.iter().find(|t| t.id == task_id).unwrap();
+            assert!(t.agent.is_none(), "precondition: task has no agent");
+        }
+
+        // Send a valid agent but an invalid (negative) priority
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("review".into()),
+            priority: Some(-99),
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Error(msg) => {
+                assert!(msg.contains("priority must be >= 0"), "got: {msg}");
+            }
+            update_task_response::Result::Task(_) => panic!("expected error, got task"),
+        }
+
+        // In-memory task must be completely unchanged — the failed validation
+        // must not have partially applied the agent mutation.
+        let s = state.lock().await;
+        let t = s.queue.iter().find(|t| t.id == task_id).unwrap();
+        assert!(t.agent.is_none(), "agent must not have been mutated when priority validation failed");
+        assert_eq!(t.priority, 0, "priority must not have changed");
+    }
+
+    #[tokio::test]
+    async fn update_task_zero_priority_is_accepted() {
+        // priority = 0 is the minimum valid value; must not be rejected.
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state);
+        let task_id = enqueue_github(&svc, "10").await;
+        let req = Request::new(UpdateTaskRequest {
+            task_id,
+            agent: None,
+            priority: Some(0),
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => assert_eq!(t.priority, 0),
+            update_task_response::Result::Error(e) => panic!("expected ok for priority=0, got: {e}"),
+        }
     }
 
     #[tokio::test]

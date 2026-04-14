@@ -427,6 +427,24 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// load_config (used at startup via AppState::new) silently falls back to defaults
+    /// when the TOML is valid syntax but has a type mismatch — unlike reload_config
+    /// which returns an error for the same input. This is intentional: startup must
+    /// not abort if the config file is slightly wrong.
+    #[test]
+    fn load_config_type_mismatch_uses_defaults() {
+        let dir = format!("/tmp/team-state-type-mismatch-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        // Valid TOML syntax but workers_count is a string, not an integer.
+        std::fs::write(&config_path, r#"workers_count = "four"\nlog_level = "debug""#).unwrap();
+        let state = AppState::new(config_path);
+        // Falls back to defaults — workers_count=4, log_level="info"
+        assert_eq!(state.config.workers_count, 4, "type-mismatch config must fall back to default workers_count");
+        assert_eq!(state.config.log_level, "info", "type-mismatch config must fall back to default log_level");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn running_tasks_are_re_queued_on_load() {
         // Create a unique temp dir so config path and queue path are both isolated.
