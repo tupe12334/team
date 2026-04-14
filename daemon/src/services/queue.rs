@@ -227,12 +227,19 @@ impl QueueService for QueueServiceImpl {
                 "cannot remove a running task; wait for it to complete or restart the daemon to re-queue it",
             ));
         }
+        let removed_task = state.queue.iter().find(|t| t.id == req.task_id).cloned();
         let before = state.queue.len();
         state.queue.retain(|t| t.id != req.task_id);
         if state.queue.len() == before {
             return Err(Status::not_found("task not found"));
         }
-        state.save_queue().map_err(Status::internal)?;
+        if let Err(e) = state.save_queue() {
+            // Roll back: task must not disappear from memory when the disk write failed.
+            if let Some(task) = removed_task {
+                state.queue.push(task);
+            }
+            return Err(Status::internal(format!("failed to persist queue: {e}")));
+        }
         Ok(Response::new(RemoveTaskResponse {
             result: Some(remove_task_response::Result::Ok(())),
         }))
@@ -374,6 +381,25 @@ mod tests {
         let svc = QueueServiceImpl::new(make_state());
         let req = Request::new(RemoveTaskRequest { task_id: "no-such-task".into() });
         assert!(svc.remove_task(req).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn remove_task_rolls_back_on_save_failure() {
+        // Enqueue with a writable path, then point to a path that cannot be written.
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "55").await;
+        state.lock().await.queue_path = "/nonexistent-dir/queue.json".into();
+
+        let req = Request::new(RemoveTaskRequest { task_id: task_id.clone() });
+        let res = svc.remove_task(req).await;
+        assert!(res.is_err(), "expected Status::internal when save_queue fails");
+        // Task must still be present in memory after rollback
+        let locked = state.lock().await;
+        assert!(
+            locked.queue.iter().any(|t| t.id == task_id),
+            "task must be restored in memory after rollback"
+        );
     }
 
     #[tokio::test]

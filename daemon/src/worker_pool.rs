@@ -50,6 +50,7 @@ async fn pick_next_task(
     let task_id = task.id.clone();
     let agent = task.agent.clone();
     let issue_ref = task.issue_ref.clone();
+    let old_updated_at = task.updated_at;
     task.status = TaskStatus::Running as i32;
     task.updated_at = Some(prost_types::Timestamp {
         seconds: now_seconds(),
@@ -69,7 +70,19 @@ async fn pick_next_task(
     });
 
     if let Err(e) = s.save_queue() {
-        eprintln!("[worker_pool] save_queue failed after marking task {task_id} RUNNING: {e}");
+        // Roll back: revert task to QUEUED and remove the worker slot so the dispatch
+        // loop retries cleanly on the next tick rather than dispatching a task whose
+        // RUNNING state was never persisted (which would cause it to re-queue on restart
+        // while the subprocess is still running — duplicate execution).
+        if let Some(task) = s.queue.iter_mut().find(|t| t.id == task_id) {
+            task.status = TaskStatus::Queued as i32;
+            task.updated_at = old_updated_at;
+        }
+        s.workers.retain(|w| w.worker_id != worker_id);
+        eprintln!(
+            "[worker_pool] save_queue failed after marking task {task_id} RUNNING: {e}; rolled back to QUEUED"
+        );
+        return None;
     }
     Some((task_id, issue_ref, worker_id, agent))
 }
@@ -368,6 +381,27 @@ mod tests {
         let state = make_state(4);
         let result = pick_next_task(&state).await;
         assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn pick_rolls_back_to_queued_on_save_failure() {
+        // Use a queue_path that cannot be written so save_queue fails.
+        let state = Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/pick-rollback-test.toml".into(),
+            queue_path: "/nonexistent-dir/queue.json".into(),
+            queue: vec![queued_task("t1", 5)],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec![] },
+        }));
+        let result = pick_next_task(&state).await;
+        // Must return None — not safe to dispatch when persist failed
+        assert!(result.is_none(), "should return None when save_queue fails");
+        let s = state.lock().await;
+        // Task must be rolled back to QUEUED
+        let task = s.queue.iter().find(|t| t.id == "t1").expect("task must still exist");
+        assert_eq!(task.status, TaskStatus::Queued as i32, "task must be rolled back to QUEUED");
+        // Worker slot must not be leaked
+        assert!(s.workers.is_empty(), "worker slot must not be registered when save fails");
     }
 
     #[tokio::test]
