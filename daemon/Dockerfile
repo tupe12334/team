@@ -2,7 +2,7 @@
 # Use Alpine + musl for a fully static binary with no glibc version concerns.
 FROM rust:1-alpine AS builder
 
-RUN apk add --no-cache musl-dev protobuf-dev
+RUN apk add --no-cache musl-dev protobuf-dev git
 
 WORKDIR /build
 
@@ -25,7 +25,8 @@ COPY daemon/src/ ./src/
 RUN cargo build --release
 
 # Build worktree-io so workers can execute tasks
-RUN cargo install worktree-io --root /build/tools
+# worktree-io lives at github.com/worktree-io/runner (not on crates.io)
+RUN cargo install --git https://github.com/worktree-io/runner --root /build/tools
 
 # ─── Runtime Stage ────────────────────────────────────────────────────────────
 FROM alpine:3
