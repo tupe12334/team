@@ -1,5 +1,5 @@
 /* eslint-disable single-export/single-export */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface DaemonConfig {
   workersCount: number;
@@ -25,6 +25,7 @@ export function useConfigPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -42,7 +43,23 @@ export function useConfigPanel() {
     }
   }, []);
 
-  useEffect(() => { void fetchConfig(); }, [fetchConfig]);
+  useEffect(() => {
+    void fetchConfig();
+    // Poll every 10 s — updates config (server source of truth) but NOT draft,
+    // so unsaved user edits are preserved across background refreshes.
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    intervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/daemon/config");
+        if (!res.ok) return;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const data: DaemonConfig = await res.json();
+        setConfig(data);
+        setError(null);
+      } catch { /* ignore transient poll errors */ }
+    }, 10000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [fetchConfig]);
 
   const isDirty = draft && config && (
     draft.workersCount !== config.workersCount ||

@@ -86,6 +86,24 @@ describe("useConfigPanel", () => {
     expect(result.current.saved).toBe(false);
   });
 
+  it("polls config every 10 seconds without overwriting unsaved draft edits", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const updated = { ...baseConfig, workersCount: 8 };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))  // initial load
+      .mockResolvedValueOnce(okFetch(updated));      // first poll
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // Simulate user editing draft
+    act(() => { result.current.setDraft({ ...baseConfig, workersCount: 99 }); });
+    // Advance timer to trigger poll
+    vi.advanceTimersByTime(10000);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // Draft preserves user edits; config reflects server state
+    expect(result.current.draft?.workersCount).toBe(99);
+  });
+
   it("handleSave sets error when PATCH fails", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(okFetch(baseConfig))

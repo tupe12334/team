@@ -39,6 +39,19 @@ describe("useWorkersPanel", () => {
     expect(result.current.error).toBe("service unavailable");
   });
 
+  it("clears data when workers service becomes unreachable after initial load", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(workerData), text: () => Promise.resolve("") })
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve("service down") });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useWorkersPanel());
+    await waitFor(() => expect(result.current.data).toEqual(workerData));
+    vi.advanceTimersByTime(5000);
+    await waitFor(() => expect(result.current.error).toBe("service down"));
+    expect(result.current.data).toBeNull();
+  });
+
   it("polls every 5 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn().mockResolvedValue({

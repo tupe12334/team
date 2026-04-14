@@ -29,6 +29,20 @@ describe("useDaemonPanel", () => {
     expect(result.current.error).toBe("bad gateway");
   });
 
+  it("clears info when daemon becomes unreachable after initial load", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(info))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve("daemon down") });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.info).toEqual(info));
+    vi.advanceTimersByTime(5000);
+    await waitFor(() => expect(result.current.error).toBe("daemon down"));
+    expect(result.current.info).toBeNull();
+  });
+
   it("polls every 5 seconds", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };

@@ -34,6 +34,7 @@ export function useDaemonPanel() {
       setInfo(await res.json());
       setError(null);
     } catch (e) {
+      setInfo(null); // clear stale data so UI shows the error, not outdated values
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);

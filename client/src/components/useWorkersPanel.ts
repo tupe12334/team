@@ -40,6 +40,7 @@ export function useWorkersPanel() {
       setData(await res.json());
       setError(null);
     } catch (e) {
+      setData(null); // clear stale data so UI shows the error, not outdated values
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
