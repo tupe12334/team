@@ -42,7 +42,6 @@ describe("GET /api/queue", () => {
     // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm.
     // All other GET tests throw `new Error(...)` which hits err.message; this test throws a
     // plain string so the else branch is reached.
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
     mockList.mockRejectedValueOnce("unexpected queue failure");
     const res = await GET();
     expect(res.status).toBe(502);

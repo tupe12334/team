@@ -133,6 +133,13 @@ describe("queueRemoveTask", () => {
     mockGrpcCall.mockResolvedValueOnce(undefined);
     await expect(queueRemoveTask("t1")).resolves.toBeUndefined();
   });
+
+  it("propagates grpcCall rejection", async () => {
+    // queueRemoveTask has no unwrap call — it awaits grpcCall directly, so any
+    // gRPC transport rejection propagates straight through to the caller.
+    mockGrpcCall.mockRejectedValueOnce(new Error("task not found"));
+    await expect(queueRemoveTask("missing")).rejects.toThrow("task not found");
+  });
 });
 
 describe("workerGetStatus", () => {
