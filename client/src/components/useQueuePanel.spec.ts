@@ -177,6 +177,23 @@ describe("useQueuePanel", () => {
     await waitFor(() => expect(result.current.error).toBe("agents unavailable"));
   });
 
+  it("handleDelete catches thrown network errors and sets error", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "DELETE")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      // DELETE throws — simulates a network-level failure (not an HTTP error response)
+      return Promise.reject(new Error("network failure"));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleDelete("t1"); });
+    expect(result.current.error).toBe("network failure");
+    // Task list is refetched after a catch so stale data is replaced
+    expect(result.current.deletingId).toBeNull();
+  });
+
   it("handleEnqueue with LINK provider sends link issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

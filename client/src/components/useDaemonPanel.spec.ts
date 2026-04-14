@@ -91,4 +91,34 @@ describe("useDaemonPanel", () => {
     await act(async () => { await result.current.handleShutdown(); });
     expect(result.current.error).toBe("shutdown error");
   });
+
+  it("handleShutdown calls POST and resets shuttingDown on success", async () => {
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(info))
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve("") });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.handleShutdown(); });
+    expect(fetchMock).toHaveBeenCalledWith("/api/daemon/shutdown", { method: "POST" });
+    expect(result.current.error).toBeNull();
+    expect(result.current.shuttingDown).toBe(false);
+  });
+
+  it("handleShutdown does nothing when user cancels the confirmation dialog", async () => {
+    const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(false));
+    const fetchMock = vi.fn().mockResolvedValue(okFetch(info));
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useDaemonPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsBefore = fetchMock.mock.calls.length;
+    await act(async () => { await result.current.handleShutdown(); });
+    // No extra fetch beyond initial load
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
+    expect(result.current.shuttingDown).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
 });
