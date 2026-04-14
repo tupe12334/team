@@ -158,6 +158,27 @@ describe("useQueuePanel", () => {
     expect(result.current.submitting).toBe(false);
   });
 
+  it("handleEnqueue extracts error from JSON body when POST fails (parseError branch 1)", async () => {
+    // parseError branch 1: JSON body with .error string → extract the message
+    // (existing "sets error when POST fails" hits branch 3 — plain text that fails JSON.parse)
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "POST")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(tasks), text: () => Promise.resolve("") });
+      return Promise.resolve({ ok: false, text: () => Promise.resolve('{"error":"agent is disabled"}') });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setOrg("myorg"); result.current.setRepo("myrepo"); result.current.setNumber("42"); });
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    // parseError extracts the message — user sees "agent is disabled" not the raw JSON string
+    expect(result.current.error).toBe("agent is disabled");
+    expect(result.current.submitting).toBe(false);
+  });
+
   it("handleEnqueue with CENTY provider sends centy issueRef", async () => {
     let capturedBody = "";
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {

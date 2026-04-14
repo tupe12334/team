@@ -153,6 +153,23 @@ describe("useConfigPanel", () => {
     expect(result.current.saving).toBe(false);
   });
 
+  it("handleSave extracts error from JSON body when PATCH fails (parseError branch 1)", async () => {
+    // parseError branch 1: JSON body with .error string → extract the message
+    // (existing "sets error when PATCH fails" hits branch 3 — plain text that fails JSON.parse)
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okFetch(baseConfig))
+      .mockResolvedValueOnce({ ok: false, text: () => Promise.resolve('{"error":"workers_count must be positive"}') });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setDraft({ ...baseConfig, workersCount: 8 }); });
+    await act(async () => { await result.current.handleSave(); });
+    // parseError extracts the message — user sees "workers_count must be positive" not raw JSON
+    expect(result.current.error).toBe("workers_count must be positive");
+    expect(result.current.saving).toBe(false);
+    expect(result.current.saved).toBe(false);
+  });
+
   it("isDirty is false when enabledAgents differ only in order", async () => {
     const configWithAgents = { ...baseConfig, enabledAgents: ["review", "qa"] };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okFetch(configWithAgents)));
