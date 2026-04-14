@@ -141,4 +141,43 @@ describe("useQueuePanel", () => {
     expect(result.current.error).toBe("enqueue failed");
     expect(result.current.submitting).toBe(false);
   });
+
+  it("handleEnqueue with CENTY provider sends centy issueRef", async () => {
+    let capturedBody = "";
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "POST")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]), text: () => Promise.resolve("") });
+      const b = init?.body; capturedBody = typeof b === "string" ? b : "";
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: "t5", status: 0, priority: 0 }) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setProvider("CENTY"); result.current.setOrg("acme"); result.current.setRepo("proj"); result.current.setNumber("5"); });
+    await act(async () => { await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>); });
+    expect(capturedBody).toContain('"centy"');
+    expect(capturedBody).toContain('"acme"');
+    expect(capturedBody).not.toContain('"github"');
+    expect(result.current.org).toBe("");
+  });
+
+  it("handleEnqueue with LINK provider sends link issueRef", async () => {
+    let capturedBody = "";
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      if (url === "/api/queue" && init?.method !== "POST")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]), text: () => Promise.resolve("") });
+      const b = init?.body; capturedBody = typeof b === "string" ? b : "";
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: "t6", status: 0, priority: 0 }) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => { result.current.setProvider("LINK"); result.current.setUrl("https://github.com/org/repo/issues/42"); });
+    await act(async () => { await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>); });
+    expect(capturedBody).toContain('"link"');
+    expect(capturedBody).toContain("github.com/org/repo/issues/42");
+    expect(result.current.url).toBe("");
+  });
 });
