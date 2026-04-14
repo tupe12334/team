@@ -528,6 +528,29 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Verifies that the `agent` field in the queue JSON is deserialized to `Some(String)`
+    /// when it is present.  Every other load test omits the `agent` key entirely, which
+    /// hits the `#[serde(default)]` → `None` path.  This test hits the `Some` path for
+    /// the first time, completing the two-arm coverage of the agent field.
+    #[test]
+    fn load_queue_preserves_explicit_agent_field() {
+        let dir = format!("/tmp/team-state-agent-rt-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        let queue_path = format!("{dir}/queue.json");
+        // Include an explicit `agent` field — exercises the Some(_) deserialization arm.
+        let json = r#"[{"id":"t1","issue_ref":null,"agent":"review","status":0,"priority":0,"created_at":null,"updated_at":null}]"#;
+        std::fs::write(&queue_path, json).unwrap();
+        let state = AppState::new(config_path);
+        assert_eq!(state.queue.len(), 1);
+        assert_eq!(
+            state.queue[0].agent,
+            Some("review".into()),
+            "agent field present in JSON must deserialize to Some(\"review\")"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Exercises the false arm of `if t.status == TaskStatus::Running` in load_queue:
     /// non-Running tasks (Queued=0, Completed=2) must be loaded with their status unchanged.
     /// The existing `running_tasks_are_re_queued_on_load` only tests the true arm (Running→Queued).
