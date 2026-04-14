@@ -292,6 +292,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn select_next_noop_on_daemon_tab() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        app.selected_task = 2;
+        app.select_next();
+        assert_eq!(app.selected_task, 2, "select_next must be a no-op on Daemon tab (len=0)");
+    }
+
+    #[tokio::test]
+    async fn select_prev_noop_on_daemon_tab() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        app.selected_task = 2;
+        app.select_prev();
+        assert_eq!(app.selected_task, 2, "select_prev must be a no-op on Daemon tab (len=0)");
+    }
+
+    #[tokio::test]
+    async fn select_next_noop_when_workers_tab_no_status() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        // worker_status is None → map_or(0, ...) = 0
+        app.selected_task = 0;
+        app.select_next();
+        assert_eq!(app.selected_task, 0, "select_next must be a no-op when worker_status is None");
+    }
+
+    #[tokio::test]
+    async fn select_prev_noop_when_workers_tab_no_status() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        // worker_status is None → map_or(0, ...) = 0
+        app.selected_task = 0;
+        app.select_prev();
+        assert_eq!(app.selected_task, 0, "select_prev must be a no-op when worker_status is None");
+    }
+
+    #[tokio::test]
     async fn refresh_clears_worker_status_when_daemon_unreachable() {
         let mut app = make_app().await;
         app.worker_status = Some(crate::client::WorkerStatusData {

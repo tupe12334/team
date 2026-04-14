@@ -45,6 +45,7 @@ describe("grpcHttpStatus", () => {
   it("returns 502 for unknown gRPC codes", () => { expect(grpcHttpStatus({ code: 99 })).toBe(502); });
   it("returns 502 for plain errors without a code", () => { expect(grpcHttpStatus(new Error("network"))).toBe(502); });
   it("returns 502 for null", () => { expect(grpcHttpStatus(null)).toBe(502); });
+  it("returns 502 when code is a non-numeric type", () => { expect(grpcHttpStatus({ code: "error" })).toBe(502); });
 });
 
 describe("grpcCall", () => {

@@ -66,6 +66,16 @@ describe("daemonGetAvailableAgents", () => {
     const result = await daemonGetAvailableAgents();
     expect(result).toEqual([]);
   });
+
+  it("throws ApiError on error response", async () => {
+    mockGrpcCall.mockResolvedValueOnce({ error: "agents unavailable" });
+    await expect(daemonGetAvailableAgents()).rejects.toThrow(ApiError);
+  });
+
+  it("throws EmptyResponseError when response has neither ok nor error", async () => {
+    mockGrpcCall.mockResolvedValueOnce({});
+    await expect(daemonGetAvailableAgents()).rejects.toThrow(EmptyResponseError);
+  });
 });
 
 describe("queueList", () => {
