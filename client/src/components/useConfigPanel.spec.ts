@@ -208,7 +208,6 @@ describe("useConfigPanel", () => {
 
   it("sets error via String() when fetchConfig rejects with a non-Error value", async () => {
     // exercises `e instanceof Error ? e.message : String(e)` in fetchConfig catch — the String(e) branch
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue("config network failure"));
     const { result } = renderHook(() => useConfigPanel());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -221,7 +220,6 @@ describe("useConfigPanel", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(okFetch(baseConfig))
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       .mockRejectedValueOnce("poll network failure");
     vi.stubGlobal("fetch", fetchMock);
     const { result } = renderHook(() => useConfigPanel());
@@ -237,7 +235,6 @@ describe("useConfigPanel", () => {
     // exercises `e instanceof Error ? e.message : String(e)` in handleSave catch — the String(e) branch
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(okFetch(baseConfig))
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       .mockRejectedValueOnce("save network failure");
     vi.stubGlobal("fetch", fetchMock);
     const { result } = renderHook(() => useConfigPanel());

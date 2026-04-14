@@ -166,7 +166,6 @@ describe("useDaemonPanel", () => {
   it("sets error via String() when fetchInfo rejects with a non-Error value", async () => {
     // exercises `e instanceof Error ? e.message : String(e)` in fetchInfo catch — the String(e) branch
     // (existing "network failure" test uses `new Error` which hits the e.message branch)
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue("daemon unavailable"));
     const { result } = renderHook(() => useDaemonPanel());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -179,7 +178,6 @@ describe("useDaemonPanel", () => {
     const info = { version: "0.1.0", uptimeSeconds: 10, configPath: "/etc/d.toml", workersCount: 2 };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(okFetch(info))
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       .mockRejectedValueOnce("reload network failure");
     vi.stubGlobal("fetch", fetchMock);
     const { result } = renderHook(() => useDaemonPanel());
@@ -195,7 +193,6 @@ describe("useDaemonPanel", () => {
     vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(okFetch(info))
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       .mockRejectedValueOnce("shutdown network failure");
     vi.stubGlobal("fetch", fetchMock);
     const { result } = renderHook(() => useDaemonPanel());
