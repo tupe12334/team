@@ -99,9 +99,7 @@ export function useQueuePanel() {
       const errMsg = e instanceof Error ? e.message : String(e);
       await fetchTasks();
       setError(errMsg);
-    } finally {
-      setDeletingId(null);
-    }
+    } finally { setDeletingId(null); }
   };
 
   return {
