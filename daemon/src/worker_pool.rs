@@ -180,7 +180,30 @@ fn now_seconds() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, JiraIssueRef};
+    use crate::proto::{issue_ref, CentyIssueRef, DaemonConfig, GitHubIssueRef, JiraIssueRef, Task, TaskStatus};
+    use crate::state::AppState;
+
+    fn make_state(workers_count: i32) -> Arc<Mutex<AppState>> {
+        Arc::new(Mutex::new(AppState {
+            config_path: "/tmp/worker-pool-test.toml".into(),
+            queue_path: "/tmp/worker-pool-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count, log_level: "info".into(), enabled_agents: vec![] },
+        }))
+    }
+
+    fn queued_task(id: &str, priority: i32) -> Task {
+        Task {
+            id: id.into(),
+            issue_ref: None,
+            agent: None,
+            status: TaskStatus::Queued as i32,
+            priority,
+            created_at: None,
+            updated_at: None,
+        }
+    }
 
     fn github_ref(org: &str, repo: &str, number: &str) -> IssueRef {
         IssueRef { r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
@@ -216,5 +239,133 @@ mod tests {
     fn worktree_ref_empty_issue_ref_returns_none() {
         let empty = IssueRef { r#ref: None };
         assert_eq!(to_worktree_ref(&empty), None);
+    }
+
+    // --- pick_next_task tests ---
+
+    #[tokio::test]
+    async fn pick_returns_highest_priority_queued_task() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            s.queue.push(queued_task("low", 1));
+            s.queue.push(queued_task("high", 10));
+            s.queue.push(queued_task("mid", 5));
+        }
+        let result = pick_next_task(&state).await;
+        let (task_id, _, _, _) = result.expect("should pick a task");
+        assert_eq!(task_id, "high");
+    }
+
+    #[tokio::test]
+    async fn pick_sets_task_to_running() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            s.queue.push(queued_task("t1", 5));
+        }
+        let (task_id, _, _, _) = pick_next_task(&state).await.expect("should pick");
+        let s = state.lock().await;
+        let task = s.queue.iter().find(|t| t.id == task_id).expect("task must exist");
+        assert_eq!(task.status, TaskStatus::Running as i32);
+    }
+
+    #[tokio::test]
+    async fn pick_registers_worker() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            s.queue.push(queued_task("t1", 5));
+        }
+        pick_next_task(&state).await.expect("should pick");
+        let s = state.lock().await;
+        assert_eq!(s.workers.len(), 1);
+        assert_eq!(s.workers[0].current_task_id, "t1");
+    }
+
+    #[tokio::test]
+    async fn pick_respects_workers_count_limit() {
+        let state = make_state(1);
+        {
+            let mut s = state.lock().await;
+            s.queue.push(queued_task("t1", 5));
+            s.queue.push(queued_task("t2", 3));
+            // Simulate one worker already running
+            s.workers.push(WorkerInfo {
+                worker_id: "existing".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "t1".into(),
+                current_agent: String::new(),
+                task_started_at: None,
+            });
+        }
+        let result = pick_next_task(&state).await;
+        assert!(result.is_none(), "should not pick when at capacity");
+    }
+
+    #[tokio::test]
+    async fn pick_returns_none_when_no_queued_tasks() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            // Only a RUNNING task, no QUEUED
+            let mut t = queued_task("t1", 5);
+            t.status = TaskStatus::Running as i32;
+            s.queue.push(t);
+        }
+        let result = pick_next_task(&state).await;
+        assert!(result.is_none(), "should not pick a non-queued task");
+    }
+
+    #[tokio::test]
+    async fn pick_returns_none_for_empty_queue() {
+        let state = make_state(4);
+        let result = pick_next_task(&state).await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn finish_task_sets_completed_on_success() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            let mut t = queued_task("t1", 0);
+            t.status = TaskStatus::Running as i32;
+            s.queue.push(t);
+            s.workers.push(WorkerInfo {
+                worker_id: "w1".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "t1".into(),
+                current_agent: String::new(),
+                task_started_at: None,
+            });
+        }
+        finish_task(&state, "t1", "w1", true).await;
+        let s = state.lock().await;
+        let task = s.queue.iter().find(|t| t.id == "t1").expect("task must exist");
+        assert_eq!(task.status, TaskStatus::Completed as i32);
+        assert!(s.workers.is_empty(), "worker slot must be freed");
+    }
+
+    #[tokio::test]
+    async fn finish_task_sets_failed_on_failure() {
+        let state = make_state(4);
+        {
+            let mut s = state.lock().await;
+            let mut t = queued_task("t1", 0);
+            t.status = TaskStatus::Running as i32;
+            s.queue.push(t);
+            s.workers.push(WorkerInfo {
+                worker_id: "w1".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "t1".into(),
+                current_agent: String::new(),
+                task_started_at: None,
+            });
+        }
+        finish_task(&state, "t1", "w1", false).await;
+        let s = state.lock().await;
+        let task = s.queue.iter().find(|t| t.id == "t1").expect("task must exist");
+        assert_eq!(task.status, TaskStatus::Failed as i32);
     }
 }
