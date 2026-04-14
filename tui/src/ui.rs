@@ -61,17 +61,11 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .enumerate()
         .map(|(i, task)| {
-            let status_str = match TaskStatus::try_from(task.status).unwrap_or(TaskStatus::Queued) {
-                TaskStatus::Queued => "queued",
-                TaskStatus::Running => "running",
-                TaskStatus::Completed => "completed",
-                TaskStatus::Failed => "failed",
-            };
-            let status_color = match TaskStatus::try_from(task.status).unwrap_or(TaskStatus::Queued) {
-                TaskStatus::Queued => Color::White,
-                TaskStatus::Running => Color::Green,
-                TaskStatus::Completed => Color::Blue,
-                TaskStatus::Failed => Color::Red,
+            let (status_str, status_color) = match TaskStatus::try_from(task.status).unwrap_or(TaskStatus::Queued) {
+                TaskStatus::Queued => ("queued", Color::White),
+                TaskStatus::Running => ("running", Color::Green),
+                TaskStatus::Completed => ("completed", Color::Blue),
+                TaskStatus::Failed => ("failed", Color::Red),
             };
 
             let issue = format_issue_ref(&task.issue_ref);

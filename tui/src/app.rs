@@ -98,12 +98,16 @@ impl App {
 
         match self.client.list_tasks().await {
             Ok(tasks) => self.tasks = tasks,
-            Err(e) => self.error = Some(format!("Queue: {e}")),
+            Err(e) => {
+                self.tasks = vec![]; // clear stale data so UI shows error, not outdated tasks
+                self.error = Some(format!("Queue: {e}"));
+            }
         }
 
         match self.client.get_worker_status().await {
             Ok(status) => self.worker_status = status,
             Err(e) => {
+                self.worker_status = None; // clear stale data
                 if self.error.is_none() {
                     self.error = Some(format!("Workers: {e}"));
                 }
@@ -113,6 +117,7 @@ impl App {
         match self.client.get_daemon_info().await {
             Ok(info) => self.daemon_info = info,
             Err(e) => {
+                self.daemon_info = None; // clear stale data
                 if self.error.is_none() {
                     self.error = Some(format!("Daemon: {e}"));
                 }
@@ -245,5 +250,27 @@ mod tests {
         assert_eq!(Tab::Queue.title(), "Queue");
         assert_eq!(Tab::Workers.title(), "Workers");
         assert_eq!(Tab::Daemon.title(), "Daemon");
+    }
+
+    #[tokio::test]
+    async fn refresh_clears_tasks_when_daemon_unreachable() {
+        let mut app = make_app().await;
+        app.tasks = vec![crate::client::Task { id: "stale".into(), ..Default::default() }];
+        app.refresh().await;
+        assert!(app.tasks.is_empty(), "stale tasks must be cleared on daemon error");
+        assert!(app.error.is_some(), "error must be set when daemon is unreachable");
+    }
+
+    #[tokio::test]
+    async fn refresh_clears_daemon_info_when_daemon_unreachable() {
+        let mut app = make_app().await;
+        app.daemon_info = Some(crate::client::DaemonInfo {
+            version: "old".into(),
+            uptime_seconds: 999,
+            config_path: "/old".into(),
+            workers_count: 4,
+        });
+        app.refresh().await;
+        assert!(app.daemon_info.is_none(), "stale daemon info must be cleared on error");
     }
 }
