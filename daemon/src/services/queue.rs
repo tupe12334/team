@@ -250,9 +250,9 @@ impl QueueService for QueueServiceImpl {
 mod tests {
     use super::*;
     use crate::proto::{
-        DaemonConfig, GitHubIssueRef, IssueRefInput, JiraIssueRef, LinkRef,
+        CentyIssueRef, DaemonConfig, GitHubIssueRef, IssueRefInput, JiraIssueRef, LinkRef,
         UpdateTaskRequest, RemoveTaskRequest, ListQueueRequest,
-        issue_ref_input, list_queue_response, update_task_response, remove_task_response,
+        issue_ref, issue_ref_input, list_queue_response, update_task_response, remove_task_response,
     };
     use crate::proto::queue_service_server::QueueService;
 
@@ -317,6 +317,29 @@ mod tests {
             enqueue_response::Result::Task(t) => {
                 assert!(!t.id.is_empty());
                 assert_eq!(t.status, TaskStatus::Queued as i32);
+            }
+            enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn enqueue_centy_ref_succeeds() {
+        let svc = QueueServiceImpl::new(make_state());
+        let res = svc.enqueue(enqueue_req(issue_ref_input::Ref::Centy(CentyIssueRef {
+            organization: "acme".into(), repository: "proj".into(), number: "7".into(),
+        }))).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            enqueue_response::Result::Task(t) => {
+                assert!(!t.id.is_empty());
+                assert_eq!(t.status, TaskStatus::Queued as i32);
+                match t.issue_ref.unwrap().r#ref.unwrap() {
+                    issue_ref::Ref::Centy(c) => {
+                        assert_eq!(c.organization, "acme");
+                        assert_eq!(c.repository, "proj");
+                        assert_eq!(c.number, "7");
+                    }
+                    other => panic!("expected Centy ref, got {:?}", other),
+                }
             }
             enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
         }

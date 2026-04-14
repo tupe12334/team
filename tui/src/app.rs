@@ -245,6 +245,65 @@ mod tests {
         assert_eq!(app.selected_task, 0);
     }
 
+    #[tokio::test]
+    async fn select_prev_noop_when_empty() {
+        let mut app = make_app().await;
+        app.selected_task = 0;
+        app.select_prev();
+        assert_eq!(app.selected_task, 0);
+    }
+
+    #[tokio::test]
+    async fn select_next_wraps_in_workers_tab() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.worker_status = Some(crate::client::WorkerStatusData {
+            total: 4,
+            busy: 2,
+            idle: 2,
+            workers: vec![
+                crate::client::proto::WorkerInfo { worker_id: "w1".into(), ..Default::default() },
+                crate::client::proto::WorkerInfo { worker_id: "w2".into(), ..Default::default() },
+            ],
+        });
+        app.selected_task = 0;
+        app.select_next();
+        assert_eq!(app.selected_task, 1);
+        app.select_next();
+        assert_eq!(app.selected_task, 0); // wraps
+    }
+
+    #[tokio::test]
+    async fn select_prev_wraps_in_workers_tab() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.worker_status = Some(crate::client::WorkerStatusData {
+            total: 4,
+            busy: 1,
+            idle: 3,
+            workers: vec![
+                crate::client::proto::WorkerInfo { worker_id: "w1".into(), ..Default::default() },
+                crate::client::proto::WorkerInfo { worker_id: "w2".into(), ..Default::default() },
+            ],
+        });
+        app.selected_task = 0;
+        app.select_prev();
+        assert_eq!(app.selected_task, 1); // wraps to last
+    }
+
+    #[tokio::test]
+    async fn refresh_clears_worker_status_when_daemon_unreachable() {
+        let mut app = make_app().await;
+        app.worker_status = Some(crate::client::WorkerStatusData {
+            total: 4,
+            busy: 1,
+            idle: 3,
+            workers: vec![],
+        });
+        app.refresh().await;
+        assert!(app.worker_status.is_none(), "stale worker status must be cleared on daemon error");
+    }
+
     #[test]
     fn tab_titles_are_correct() {
         assert_eq!(Tab::Queue.title(), "Queue");
