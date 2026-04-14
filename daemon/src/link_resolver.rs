@@ -313,6 +313,16 @@ mod tests {
         assert!(resolve("https://github.com/acme//issues/5").await.is_err());
     }
 
+    /// GitHub URL with only org and repo — no kind segment at all:
+    /// `kind = parts.next()?` returns None (splitn yields only ["acme", "repo"]) →
+    /// try_github returns None → falls through to try_jira/try_centy → Err.
+    /// Existing tests only cover wrong kind ("blob"), missing number, or missing org/repo;
+    /// this exercises the distinct `?` on `kind` when there are ≤2 path segments.
+    #[tokio::test]
+    async fn github_url_with_no_kind_segment_returns_err() {
+        assert!(resolve("https://github.com/acme/repo").await.is_err());
+    }
+
     /// Centy URL that is too short to have a third path segment (no "issues"/kind):
     /// parts.next() for kind returns None → Ok(None) → Err("cannot resolve link").
     #[tokio::test]

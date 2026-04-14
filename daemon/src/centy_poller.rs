@@ -356,6 +356,21 @@ mod tests {
     }
 
     #[test]
+    fn parse_item_returns_none_when_project_path_is_non_string_type() {
+        // `item["projectPath"].as_str()` returns None for non-string JSON values
+        // (number, bool, array, object, null) — `unwrap_or("")` takes the None arm,
+        // giving "" to extract_org_repo, which falls back to ("unknown","unknown") → None.
+        // The existing parse_item_returns_none_when_project_path_unresolvable uses
+        // `"projectPath": ""` (a string), so as_str() returns Some("") there.
+        // This test hits the distinct unwrap_or default arm.
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": 42 },
+            "projectPath": 123
+        });
+        assert!(parse_centy_item(&item).is_none());
+    }
+
+    #[test]
     fn extract_typical_path() {
         assert_eq!(
             extract_org_repo("/home/user/dev/github/acme/my-repo"),
