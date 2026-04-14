@@ -212,6 +212,17 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn prev_tab_resets_selection() {
+        // next_tab_resets_selection tests next_tab(); this mirrors it for prev_tab().
+        // prev_tab() calls `self.selected_task = 0` at line 146 — not covered by
+        // prev_tab_cycles_backward which only checks active_tab.
+        let mut app = make_app().await;
+        app.selected_task = 3;
+        app.prev_tab();
+        assert_eq!(app.selected_task, 0);
+    }
+
+    #[tokio::test]
     async fn select_next_wraps_in_queue_tab() {
         let mut app = make_app().await;
         app.tasks = vec![
