@@ -5,7 +5,7 @@ import type { IssueRef, IssueRefInput } from "@/gen/queue";
 import type { AgentInfo } from "@/lib/grpc/client";
 
 export class ApiError extends Error {}
-export type IssueProvider = "GITHUB" | "CENTY" | "JIRA" | "LINK";
+export type IssueProvider = "GITHUB" | "CENTY" | "LINK";
 
 function parseError(raw: string): string {
   try {
@@ -20,13 +20,12 @@ export interface Task {
   status: number; priority: number; createdAt?: string; updatedAt?: string;
 }
 
-function buildIssueRef(provider: IssueProvider, org: string, repo: string, number: string, id: string, url: string): IssueRefInput | null {
+function buildIssueRef(provider: IssueProvider, org: string, repo: string, number: string, url: string): IssueRefInput | null {
   if (provider === "GITHUB" || provider === "CENTY") {
     if (!org.trim() || !repo.trim() || !number.trim()) return null;
     const ref = { organization: org.trim(), repository: repo.trim(), number: number.trim() };
     return provider === "GITHUB" ? { github: ref } : { centy: ref };
   }
-  if (provider === "JIRA") { if (!id.trim()) return null; return { jira: { id: id.trim() } }; }
   if (!url.trim()) return null;
   return { link: { url: url.trim() } };
 }
@@ -40,7 +39,7 @@ export function useQueuePanel() {
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<IssueProvider>("GITHUB");
   const [org, setOrg] = useState(""); const [repo, setRepo] = useState(""); const [number, setNumber] = useState("");
-  const [issueId, setIssueId] = useState(""); const [url, setUrl] = useState("");
+  const [url, setUrl] = useState("");
   const [agent, setAgent] = useState(""); const [priority, setPriority] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -67,7 +66,7 @@ export function useQueuePanel() {
 
   const handleEnqueue = async (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const issueRef = buildIssueRef(provider, org, repo, number, issueId, url);
+    const issueRef = buildIssueRef(provider, org, repo, number, url);
     if (!issueRef) return;
     setSubmitting(true);
     try {
@@ -77,7 +76,7 @@ export function useQueuePanel() {
         body: JSON.stringify({ issueRef, agent: agent.trim() || undefined, priority: priority || undefined }),
       });
       if (!res.ok) throw new ApiError(parseError(await res.text()));
-      setOrg(""); setRepo(""); setNumber(""); setIssueId(""); setUrl(""); setAgent(""); setPriority(0);
+      setOrg(""); setRepo(""); setNumber(""); setUrl(""); setAgent(""); setPriority(0);
       await fetchTasks();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -105,7 +104,7 @@ export function useQueuePanel() {
   return {
     tasks, agents, error, loading, provider, setProvider,
     org, setOrg, repo, setRepo, number, setNumber,
-    issueId, setIssueId, url, setUrl, agent, setAgent,
+    url, setUrl, agent, setAgent,
     priority, setPriority, submitting, deletingId, handleEnqueue, handleDelete,
   };
 }
