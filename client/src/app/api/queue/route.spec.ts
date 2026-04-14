@@ -37,6 +37,18 @@ describe("GET /api/queue", () => {
     const res = await GET();
     expect(res.status).toBe(503);
   });
+
+  it("uses String() when a non-Error value is thrown (catch branch)", async () => {
+    // exercises `err instanceof Error ? err.message : String(err)` — the String(err) arm.
+    // All other GET tests throw `new Error(...)` which hits err.message; this test throws a
+    // plain string so the else branch is reached.
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+    mockList.mockRejectedValueOnce("unexpected queue failure");
+    const res = await GET();
+    expect(res.status).toBe(502);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("unexpected queue failure");
+  });
 });
 
 describe("POST /api/queue", () => {
