@@ -497,4 +497,39 @@ describe("useQueuePanel", () => {
     expect(capturedBody).toContain("github.com/org/repo/issues/42");
     expect(result.current.url).toBe("");
   });
+
+  it("handleEnqueue includes agent and priority in POST body when both are set (truthy branch of || undefined)", async () => {
+    // `agent.trim() || undefined` and `priority || undefined` each have two branches:
+    // - falsy: agent="" → undefined (omitted from JSON); priority=0 → undefined (omitted)
+    // - truthy: agent="review" → included; priority=5 → included
+    // All other enqueue tests use the defaults (empty agent, zero priority) and hit only the
+    // falsy arm. This test explicitly sets both and verifies they appear in the request body.
+    let capturedBody = "";
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve(agents) });
+      if (url === "/api/queue" && init?.method !== "POST")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]), text: () => Promise.resolve("") });
+      const b = init?.body; capturedBody = typeof b === "string" ? b : "";
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ id: "t7", status: 1, priority: 5 }) });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() => useQueuePanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => {
+      result.current.setOrg("myorg");
+      result.current.setRepo("myrepo");
+      result.current.setNumber("42");
+      result.current.setAgent("review");
+      result.current.setPriority(5);
+    });
+    await act(async () => {
+      await result.current.handleEnqueue({ preventDefault: vi.fn() } as unknown as SyntheticEvent<HTMLFormElement>);
+    });
+    const parsed = JSON.parse(capturedBody) as { agent?: string; priority?: number };
+    expect(parsed.agent).toBe("review");
+    expect(parsed.priority).toBe(5);
+    // After a successful enqueue the form resets to defaults
+    expect(result.current.agent).toBe("");
+    expect(result.current.priority).toBe(0);
+  });
 });
