@@ -1060,6 +1060,45 @@ mod tests {
         }
     }
 
+    /// Verifies that update_task with priority=None does NOT overwrite the task's existing priority.
+    /// All other update_task tests that pass priority=None start from a task with priority=0 (the
+    /// default from enqueue_github), so `t.priority == 0` after the call is trivially true.
+    /// This test explicitly sets a non-zero priority first, then calls update_task with
+    /// priority=None, and confirms the priority is preserved — the `if let Some(priority) =
+    /// req.priority` guard leaves the field untouched.
+    #[tokio::test]
+    async fn update_task_none_priority_preserves_existing_priority() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "88").await;
+
+        // Set priority to 5 first.
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: None,
+            priority: Some(5),
+        });
+        svc.update_task(req).await.unwrap();
+
+        // Now update only agent; priority=None means "leave priority unchanged".
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("qa".into()),
+            priority: None,
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => {
+                assert_eq!(
+                    t.priority, 5,
+                    "priority must be preserved when update_task is called with priority=None"
+                );
+                assert_eq!(t.agent, Some("qa".into()), "agent must be updated");
+            }
+            update_task_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
     #[tokio::test]
     async fn list_queue_returns_all_tasks() {
         let state = make_state();
