@@ -11,6 +11,7 @@ const STATUS: Record<number, { style: string; name: string }> = {
   2: { style: "bg-emerald-950/60 text-emerald-300 border border-emerald-700/50",  name: "COMPLETED" },
   3: { style: "bg-red-950/60 text-red-300 border border-red-700/50",              name: "FAILED" },
 };
+const FALLBACK_STATUS = { style: "bg-gray-800 text-gray-400 border border-gray-700/50", name: "UNKNOWN" };
 
 function formatIssueRef(ref: IssueRef): string {
   if (ref.github) return `${ref.github.organization}/${ref.github.repository}#${ref.github.number}`;
@@ -86,7 +87,7 @@ export default function QueuePanel() {
             ))}
           </tr></thead>
           <tbody className="stagger">{tasks.map((task) => {
-            const s = STATUS[task.status];
+            const s = (task.status in STATUS) ? STATUS[task.status] : FALLBACK_STATUS;
             return (
               <tr key={task.id} className="queue-table__row border-b border-[#1c2736]/50 hover:bg-white/[0.02] transition-colors">
                 <td className="queue-table__td font-mono text-xs text-[#c9d1d9] py-2.5 pr-4 max-w-[200px] truncate">{task.issueRef ? formatIssueRef(task.issueRef) : dash}</td>

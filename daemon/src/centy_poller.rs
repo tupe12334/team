@@ -100,7 +100,18 @@ async fn fetch_in_queue_issues() -> Result<Vec<CentyIssue>, String> {
         .await
         .map_err(|e| format!("failed to spawn centy: {e}"))?;
 
-    // centy may exit non-zero if there are no projects; treat that as empty.
+    // Log stderr when centy exits non-zero (common for "no projects configured",
+    // but also catches real failures that would otherwise be invisible).
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!(
+            "[centy_poller] centy exited with code {} — stderr: {}",
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
+        );
+        // Fall through: non-zero exit may still produce valid JSON.
+    }
+
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // centy sometimes prints warnings to stdout before the JSON array.
@@ -113,24 +124,26 @@ async fn fetch_in_queue_issues() -> Result<Vec<CentyIssue>, String> {
         serde_json::from_str(&stdout[json_start..])
             .map_err(|e| format!("failed to parse centy JSON: {e}"))?;
 
-    let mut result = Vec::new();
-    for item in items {
-        let display_number = match item["metadata"]["displayNumber"].as_i64() {
-            Some(n) => n,
-            None => continue,
-        };
-        let priority = item["metadata"]["priority"].as_i64().unwrap_or(0) as i32;
-        let project_path = item["projectPath"].as_str().unwrap_or("");
-        let (org, repo) = extract_org_repo(project_path);
-        result.push(CentyIssue {
-            organization: org,
-            repository: repo,
-            number: display_number.to_string(),
-            priority,
-        });
-    }
+    Ok(items.iter().filter_map(parse_centy_item).collect())
+}
 
-    Ok(result)
+/// Parse a single centy JSON item into a `CentyIssue`.
+///
+/// Returns `None` (and logs) when the item is missing required fields or the
+/// project path cannot be resolved to an org/repo pair — both indicate data we
+/// cannot safely route, so we skip rather than enqueue with wrong metadata.
+fn parse_centy_item(item: &serde_json::Value) -> Option<CentyIssue> {
+    let display_number = item["metadata"]["displayNumber"].as_i64()?;
+    let priority = item["metadata"]["priority"].as_i64().unwrap_or(0) as i32;
+    let project_path = item["projectPath"].as_str().unwrap_or("");
+    let (org, repo) = extract_org_repo(project_path);
+    if org == "unknown" && repo == "unknown" {
+        eprintln!(
+            "[centy_poller] skipping issue #{display_number}: cannot determine org/repo from projectPath {project_path:?}"
+        );
+        return None;
+    }
+    Some(CentyIssue { organization: org, repository: repo, number: display_number.to_string(), priority })
 }
 
 /// Returns true if a task for this exact centy issue (org + repo + number) is already in the queue.
@@ -260,6 +273,57 @@ mod tests {
         let mut task = centy_task("acme", "backend", "7");
         task.status = crate::proto::TaskStatus::Failed as i32;
         assert!(is_centy_issue_present(&[task], &centy_issue("acme", "backend", "7")));
+    }
+
+    #[test]
+    fn parse_item_returns_some_with_valid_data() {
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": 42, "priority": 5 },
+            "projectPath": "/home/user/dev/github/acme/backend"
+        });
+        let issue = parse_centy_item(&item).expect("should parse");
+        assert_eq!(issue.number, "42");
+        assert_eq!(issue.organization, "acme");
+        assert_eq!(issue.repository, "backend");
+        assert_eq!(issue.priority, 5);
+    }
+
+    #[test]
+    fn parse_item_defaults_priority_to_zero_when_missing() {
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": 3 },
+            "projectPath": "/home/user/dev/org/repo"
+        });
+        let issue = parse_centy_item(&item).expect("should parse");
+        assert_eq!(issue.priority, 0);
+    }
+
+    #[test]
+    fn parse_item_returns_none_when_display_number_missing() {
+        let item = serde_json::json!({
+            "metadata": { "priority": 5 },
+            "projectPath": "/home/user/dev/github/acme/backend"
+        });
+        assert!(parse_centy_item(&item).is_none());
+    }
+
+    #[test]
+    fn parse_item_returns_none_when_project_path_unresolvable() {
+        // Empty path → extract_org_repo returns ("unknown","unknown") → skipped
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": 7, "priority": 0 },
+            "projectPath": ""
+        });
+        assert!(parse_centy_item(&item).is_none());
+    }
+
+    #[test]
+    fn parse_item_returns_none_when_project_path_single_component() {
+        let item = serde_json::json!({
+            "metadata": { "displayNumber": 8 },
+            "projectPath": "noslash"
+        });
+        assert!(parse_centy_item(&item).is_none());
     }
 
     #[test]
