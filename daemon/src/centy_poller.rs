@@ -90,8 +90,14 @@ struct CentyIssue {
 }
 
 async fn fetch_in_queue_issues() -> Result<Vec<CentyIssue>, String> {
-    let output = tokio::process::Command::new("centy")
-        .args(["list", "issues", "--status", "in queue", "--global", "--json"])
+    let mut cmd = tokio::process::Command::new("centy");
+    cmd.args(["list", "issues", "--status", "in queue", "--global", "--json"]);
+    // CENTY_CWD lets Docker (or any environment) point centy at a registered project
+    // directory so its startup checks pass even when the daemon runs outside of one.
+    if let Ok(cwd) = std::env::var("CENTY_CWD") {
+        cmd.current_dir(&cwd);
+    }
+    let output = cmd
         .output()
         .await
         .map_err(|e| format!("failed to spawn centy: {e}"))?;

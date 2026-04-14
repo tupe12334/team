@@ -2,7 +2,7 @@
 # Use Alpine + musl for a fully static binary with no glibc version concerns.
 FROM rust:1-alpine AS builder
 
-RUN apk add --no-cache musl-dev protobuf-dev git
+RUN apk add --no-cache musl-dev protobuf-dev
 
 WORKDIR /build
 
@@ -24,21 +24,20 @@ RUN rm -f target/release/deps/daemon* target/release/daemon
 COPY daemon/src/ ./src/
 RUN cargo build --release
 
-# Build worktree-io so workers can execute tasks
-# worktree-io lives at github.com/worktree-io/runner (not on crates.io)
-RUN cargo install --git https://github.com/worktree-io/runner --root /build/tools
-
 # ─── Runtime Stage ────────────────────────────────────────────────────────────
 FROM alpine:3
 
 # centy: auto-poller for issues marked "in queue"
 # nodejs/npm are required to run the centy CLI (it's a Node.js package)
-RUN apk add --no-cache ca-certificates nodejs npm git && \
+RUN apk add --no-cache ca-certificates nodejs npm && \
     npm install -g centy@0.8.1 && \
     npm cache clean --force
 
 COPY --from=builder /build/daemon/target/release/daemon /usr/local/bin/daemon
-COPY --from=builder /build/tools/bin/worktree /usr/local/bin/worktree
+# worktree-io is NOT bundled here — it is a host-level tool (needs git credentials,
+# Claude API key, and filesystem access that belong on the host, not in the container).
+# Mount a Linux/musl worktree binary at runtime if you want Docker workers to execute:
+#   docker run -v ~/.cargo/bin/worktree-linux:/usr/local/bin/worktree:ro ...
 
 # DAEMON_HOST=[::] binds to all interfaces so other containers can reach the daemon.
 # Override to [::1] if you want loopback-only outside Docker.

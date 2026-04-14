@@ -11,6 +11,10 @@ services:
       DAEMON_HOST: "[::]"
       # Route centy CLI to the host's centy-daemon (host.docker.internal resolves to the host)
       CENTY_DAEMON_ADDR: "host.docker.internal:50051"
+      # A registered project path on the host — satisfies centy's startup project-init check.
+      # The --global flag still returns issues from all orgs; this is only needed for the hook.
+      # Set CENTY_CWD in your .env file to any registered project path on the host.
+      CENTY_CWD: "${CENTY_CWD}"
     volumes:
       - daemon-data:/root/.config/team
     # Ensures host.docker.internal resolves correctly on Linux (Docker Desktop handles this automatically)
