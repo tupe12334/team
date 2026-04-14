@@ -505,4 +505,24 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// Exercises the false arm of `if t.status == TaskStatus::Running` in load_queue:
+    /// non-Running tasks (Queued=0, Completed=2) must be loaded with their status unchanged.
+    /// The existing `running_tasks_are_re_queued_on_load` only tests the true arm (Running→Queued).
+    #[test]
+    fn non_running_tasks_are_loaded_with_original_status() {
+        let dir = format!("/tmp/team-state-test-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        let queue_path = format!("{dir}/queue.json");
+        // status=0 is Queued, status=2 is Completed
+        let json = r#"[{"id":"t1","issue_ref":null,"status":0,"priority":0,"created_at":null,"updated_at":null},
+                       {"id":"t2","issue_ref":null,"status":2,"priority":0,"created_at":null,"updated_at":null}]"#;
+        std::fs::write(&queue_path, json).unwrap();
+        let state = AppState::new(config_path);
+        assert_eq!(state.queue.len(), 2);
+        assert_eq!(state.queue[0].status, TaskStatus::Queued as i32, "queued task must remain queued");
+        assert_eq!(state.queue[1].status, TaskStatus::Completed as i32, "completed task must remain completed");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
