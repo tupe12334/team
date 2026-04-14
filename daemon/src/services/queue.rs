@@ -1021,6 +1021,45 @@ mod tests {
         }
     }
 
+    /// Verifies that update_task with agent=None does NOT overwrite the task's existing agent.
+    /// All other update_task tests that pass agent=None start from a task with agent=None already,
+    /// so `t.agent == None` after the call is trivially true and does not prove preservation.
+    /// This test sets an agent first, then calls update_task with agent=None, and confirms the
+    /// agent is preserved — the `if let Some(agent) = req.agent` guard leaves the field untouched.
+    #[tokio::test]
+    async fn update_task_none_agent_preserves_existing_agent() {
+        let state = make_state();
+        let svc = QueueServiceImpl::new(state.clone());
+        let task_id = enqueue_github(&svc, "77").await;
+
+        // Set agent to "review" first.
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: Some("review".into()),
+            priority: None,
+        });
+        svc.update_task(req).await.unwrap();
+
+        // Now update only priority; agent=None means "leave agent unchanged".
+        let req = Request::new(UpdateTaskRequest {
+            task_id: task_id.clone(),
+            agent: None,
+            priority: Some(10),
+        });
+        let res = svc.update_task(req).await.unwrap().into_inner();
+        match res.result.unwrap() {
+            update_task_response::Result::Task(t) => {
+                assert_eq!(
+                    t.agent,
+                    Some("review".into()),
+                    "agent must be preserved when update_task is called with agent=None"
+                );
+                assert_eq!(t.priority, 10, "priority must be updated");
+            }
+            update_task_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        }
+    }
+
     #[tokio::test]
     async fn list_queue_returns_all_tasks() {
         let state = make_state();
