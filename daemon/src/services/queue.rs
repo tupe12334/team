@@ -159,7 +159,7 @@ impl QueueService for QueueServiceImpl {
         // Snapshot original values so we can roll back if the disk write fails.
         let old_agent = task.agent.clone();
         let old_priority = task.priority;
-        let old_updated_at = task.updated_at.clone();
+        let old_updated_at = task.updated_at;
 
         if let Some(agent) = req.agent {
             if !agent.is_empty() && !crate::gstack_agents::is_known(&agent) {
