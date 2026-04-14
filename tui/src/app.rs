@@ -7,7 +7,7 @@ use ratatui::DefaultTerminal;
 use crate::client::{Client, DaemonInfo, Task, WorkerStatusData};
 use crate::ui;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tab {
     Queue,
     Workers,
@@ -165,5 +165,85 @@ impl App {
         if len > 0 {
             self.selected_task = (self.selected_task + len - 1) % len;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn make_app() -> App {
+        App::new("http://[::1]:50051".to_string()).expect("failed to create app")
+    }
+
+    #[tokio::test]
+    async fn next_tab_cycles_forward() {
+        let mut app = make_app().await;
+        assert_eq!(app.active_tab, Tab::Queue);
+        app.next_tab();
+        assert_eq!(app.active_tab, Tab::Workers);
+        app.next_tab();
+        assert_eq!(app.active_tab, Tab::Daemon);
+        app.next_tab();
+        assert_eq!(app.active_tab, Tab::Queue); // wraps
+    }
+
+    #[tokio::test]
+    async fn prev_tab_cycles_backward() {
+        let mut app = make_app().await;
+        assert_eq!(app.active_tab, Tab::Queue);
+        app.prev_tab();
+        assert_eq!(app.active_tab, Tab::Daemon); // wraps
+        app.prev_tab();
+        assert_eq!(app.active_tab, Tab::Workers);
+    }
+
+    #[tokio::test]
+    async fn next_tab_resets_selection() {
+        let mut app = make_app().await;
+        app.selected_task = 3;
+        app.next_tab();
+        assert_eq!(app.selected_task, 0);
+    }
+
+    #[tokio::test]
+    async fn select_next_wraps_in_queue_tab() {
+        let mut app = make_app().await;
+        app.tasks = vec![
+            crate::client::Task { id: "t1".into(), ..Default::default() },
+            crate::client::Task { id: "t2".into(), ..Default::default() },
+        ];
+        app.selected_task = 0;
+        app.select_next();
+        assert_eq!(app.selected_task, 1);
+        app.select_next();
+        assert_eq!(app.selected_task, 0); // wraps
+    }
+
+    #[tokio::test]
+    async fn select_prev_wraps_in_queue_tab() {
+        let mut app = make_app().await;
+        app.tasks = vec![
+            crate::client::Task { id: "t1".into(), ..Default::default() },
+            crate::client::Task { id: "t2".into(), ..Default::default() },
+        ];
+        app.selected_task = 0;
+        app.select_prev();
+        assert_eq!(app.selected_task, 1); // wraps to last
+    }
+
+    #[tokio::test]
+    async fn select_next_noop_when_empty() {
+        let mut app = make_app().await;
+        app.selected_task = 0;
+        app.select_next();
+        assert_eq!(app.selected_task, 0);
+    }
+
+    #[test]
+    fn tab_titles_are_correct() {
+        assert_eq!(Tab::Queue.title(), "Queue");
+        assert_eq!(Tab::Workers.title(), "Workers");
+        assert_eq!(Tab::Daemon.title(), "Daemon");
     }
 }
