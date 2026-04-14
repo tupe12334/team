@@ -38,6 +38,20 @@ describe("useConfigPanel", () => {
     expect(result.current.error).toBe("config unavailable");
   });
 
+  it("returns raw text when response JSON has no error field (parseError branch 2)", async () => {
+    // parseError has three branches:
+    //   1. JSON.parse succeeds AND typeof parsed.error === "string" → return parsed.error (tested above)
+    //   2. JSON.parse succeeds BUT parsed.error is not a string → return raw text   ← this test
+    //   3. JSON.parse throws → return raw text
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, text: () => Promise.resolve('{"status":"config unavailable"}'),
+    }));
+    const { result } = renderHook(() => useConfigPanel());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // No .error string field → parseError returns the raw JSON text unchanged
+    expect(result.current.error).toBe('{"status":"config unavailable"}');
+  });
+
   it("handleSave does nothing when draft is null (fetch not yet resolved)", async () => {
     // draft starts null; fetchConfig never resolves → handleSave hits `if (!draft) return`
     // eslint-disable-next-line @typescript-eslint/no-empty-function
