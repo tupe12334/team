@@ -14,7 +14,8 @@ services:
       # A registered project path on the host — satisfies centy's startup project-init check.
       # The --global flag still returns issues from all orgs; this is only needed for the hook.
       # Set CENTY_CWD in your .env file to any registered project path on the host.
-      CENTY_CWD: "${CENTY_CWD}"
+      # Defaults to empty string (centy falls back to process.cwd(), returns no issues gracefully).
+      CENTY_CWD: "${CENTY_CWD:-}"
     volumes:
       - daemon-data:/root/.config/team
     # Ensures host.docker.internal resolves correctly on Linux (Docker Desktop handles this automatically)
