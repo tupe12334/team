@@ -428,6 +428,15 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enqueue_new_issues_is_noop_for_empty_list() {
+        // Exercises the `if issues.is_empty() { return; }` guard at line 40 —
+        // no existing test calls enqueue_new_issues with zero issues.
+        let state = make_state_with_path("/tmp/centy-poller-empty-noop.json");
+        enqueue_new_issues(&state, vec![]).await;
+        assert_eq!(state.lock().await.queue.len(), 0, "empty issues list must not touch the queue");
+    }
+
+    #[tokio::test]
     async fn enqueue_new_issues_adds_task_to_queue() {
         let path = format!("/tmp/test-centy-poller-{}.json", uuid::Uuid::new_v4());
         let state = make_state_with_path(&path);
