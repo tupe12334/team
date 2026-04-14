@@ -551,6 +551,32 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Covers the `Some(IssueRefJson)` arm of `j.issue_ref.and_then(issue_ref_json_to_proto)`
+    /// in `Task::from(TaskJson)`.  Every other load test uses `"issue_ref":null` which takes
+    /// the outer-None path of `and_then`.  This test writes a non-null ref string and verifies
+    /// the full parse → proto conversion chain fires correctly through `load_queue`.
+    #[test]
+    fn load_queue_deserializes_issue_ref_string() {
+        let dir = format!("/tmp/team-state-issue-ref-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        let queue_path = format!("{dir}/queue.json");
+        let json = r#"[{"id":"t1","issue_ref":"github:acme/backend#42","status":0,"priority":0,"created_at":null,"updated_at":null}]"#;
+        std::fs::write(&queue_path, json).unwrap();
+        let state = AppState::new(config_path);
+        assert_eq!(state.queue.len(), 1);
+        let r = state.queue[0].issue_ref.as_ref().expect("issue_ref must be Some after parsing");
+        match &r.r#ref {
+            Some(crate::proto::issue_ref::Ref::Github(g)) => {
+                assert_eq!(g.organization, "acme");
+                assert_eq!(g.repository, "backend");
+                assert_eq!(g.number, "42");
+            }
+            other => panic!("expected Github ref, got {other:?}"),
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Covers the `Some(_)` arm of `j.created_at.map(...)` and `j.updated_at.map(...)` in
     /// `Task::from(TaskJson)`.  Every other load test writes `null` for both timestamp fields,
     /// so only the `None` → `None` path is exercised there.  Here both are non-null integers
