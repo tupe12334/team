@@ -270,3 +270,28 @@ describe("ConfigPanel – log level select", () => {
     expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ logLevel: "debug" }));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Handler wiring: onClick connections to hook callbacks
+// ---------------------------------------------------------------------------
+
+describe("ConfigPanel – handler wiring", () => {
+  it("calls handleSave when the Save button is clicked", () => {
+    // onClick={() => { void handleSave(); }} — all existing Save tests only check
+    // the button label/disabled state; none verify the handler is actually invoked.
+    const handleSave = vi.fn().mockResolvedValue(undefined);
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft(), isDirty: true, handleSave }));
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByText("Save"));
+    expect(handleSave).toHaveBeenCalled();
+  });
+
+  it("calls handleReset when the Reset button is clicked", () => {
+    // onClick={handleReset} — same gap as handleSave above.
+    const handleReset = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft(), isDirty: true, handleReset }));
+    render(<ConfigPanel />);
+    fireEvent.click(screen.getByText("Reset"));
+    expect(handleReset).toHaveBeenCalled();
+  });
+});

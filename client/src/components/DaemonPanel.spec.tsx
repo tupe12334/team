@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { DaemonInfo } from "@/components/useDaemonPanel";
 
 vi.mock("@/components/useDaemonPanel");
@@ -185,5 +185,30 @@ describe("DaemonPanel – conditional rendering", () => {
     mockHook.mockReturnValue(makePanelState({ info: null }));
     const { container } = render(<DaemonPanel />);
     expect(container.querySelector(".daemon-panel__body")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Handler wiring: onClick connections to hook callbacks
+// ---------------------------------------------------------------------------
+
+describe("DaemonPanel – handler wiring", () => {
+  it("calls handleReload when the Reload Config button is clicked", () => {
+    // onClick={() => { void handleReload(); }} — all existing reload tests only check
+    // the button label/disabled state; none verify the handler is actually invoked.
+    const handleReload = vi.fn().mockResolvedValue(undefined);
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo(), handleReload }));
+    render(<DaemonPanel />);
+    fireEvent.click(screen.getByText("Reload Config"));
+    expect(handleReload).toHaveBeenCalled();
+  });
+
+  it("calls handleShutdown when the Shutdown button is clicked", () => {
+    // onClick={() => { void handleShutdown(); }} — same gap as handleReload above.
+    const handleShutdown = vi.fn().mockResolvedValue(undefined);
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo(), handleShutdown }));
+    render(<DaemonPanel />);
+    fireEvent.click(screen.getByText("Shutdown"));
+    expect(handleShutdown).toHaveBeenCalled();
   });
 });
