@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { DaemonConfig } from "@/components/useConfigPanel";
 
 vi.mock("@/components/useConfigPanel");
@@ -158,5 +158,86 @@ describe("ConfigPanel – enabledAgents field", () => {
     // Use generic overload to get HTMLInputElement.value without `as` or `!`.
     const input = container.querySelector<HTMLInputElement>('input[placeholder="e.g. review, qa, ship"]');
     expect(input?.value).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// workersCount onChange: parseInt fallback and Math.max clamp branches
+// ---------------------------------------------------------------------------
+
+describe("ConfigPanel – workersCount input interaction", () => {
+  it("calls setDraft with parsed integer for a valid positive input (parseInt truthy arm)", () => {
+    // `Math.max(1, parseInt("8") || 1)` = `Math.max(1, 8)` = 8 — both || and max pass through.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ workersCount: 4 }), setDraft }));
+    render(<ConfigPanel />);
+    // type="number" inputs have ARIA role "spinbutton" — getByRole throws if absent (no ! needed).
+    const input = screen.getByRole("spinbutton");
+    fireEvent.change(input, { target: { value: "8" } });
+    expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ workersCount: 8 }));
+  });
+
+  it("calls setDraft with 1 when input is cleared (parseInt('') → NaN → || 1 fallback)", () => {
+    // `Math.max(1, parseInt("") || 1)` = `Math.max(1, NaN || 1)` = `Math.max(1, 1)` = 1
+    // Exercises the falsy arm of `parseInt(e.target.value) || 1`.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ workersCount: 4 }), setDraft }));
+    render(<ConfigPanel />);
+    const input = screen.getByRole("spinbutton");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ workersCount: 1 }));
+  });
+
+  it("calls setDraft with 1 when input is negative (Math.max clamp branch)", () => {
+    // `Math.max(1, parseInt("-5") || 1)` = `Math.max(1, -5)` = 1
+    // parseInt("-5") = -5 (truthy — the || arm passes through), but Math.max clamps it.
+    // This is a distinct branch: || 1 does NOT fire, Math.max(1, ...) does.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ workersCount: 4 }), setDraft }));
+    render(<ConfigPanel />);
+    const input = screen.getByRole("spinbutton");
+    fireEvent.change(input, { target: { value: "-5" } });
+    expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ workersCount: 1 }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// enabledAgents onChange: split/trim/filter(Boolean) branches
+// ---------------------------------------------------------------------------
+
+describe("ConfigPanel – enabledAgents input interaction", () => {
+  it("calls setDraft with trimmed non-empty strings when agents are comma-separated", () => {
+    // split(",") → map(trim) → filter(Boolean): all three items survive — truthy filter arm.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ enabledAgents: [] }), setDraft }));
+    render(<ConfigPanel />);
+    const input = screen.getByPlaceholderText("e.g. review, qa, ship");
+    fireEvent.change(input, { target: { value: "review, qa, ship" } });
+    expect(setDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ enabledAgents: ["review", "qa", "ship"] })
+    );
+  });
+
+  it("calls setDraft with empty array when field is cleared (filter drops the single empty string)", () => {
+    // split(",") → [""]; map(trim) → [""]; filter(Boolean) → [] — falsy filter arm.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ enabledAgents: ["review"] }), setDraft }));
+    render(<ConfigPanel />);
+    const input = screen.getByPlaceholderText("e.g. review, qa, ship");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ enabledAgents: [] }));
+  });
+
+  it("calls setDraft excluding the trailing empty entry from a trailing comma", () => {
+    // "review, qa, " → split → ["review", " qa", " "]; trim → ["review", "qa", ""];
+    // filter(Boolean) drops the trailing "" — confirms filter(Boolean) is doing real work.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ enabledAgents: [] }), setDraft }));
+    render(<ConfigPanel />);
+    const input = screen.getByPlaceholderText("e.g. review, qa, ship");
+    fireEvent.change(input, { target: { value: "review, qa, " } });
+    expect(setDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ enabledAgents: ["review", "qa"] })
+    );
   });
 });
