@@ -484,4 +484,36 @@ mod tests {
         terminal.draw(|f| render(f, &app)).unwrap();
         assert!(buffer_has(&terminal, "Workers (0)"), "empty worker list must show 0 count");
     }
+
+    #[tokio::test]
+    async fn render_queue_unknown_status_falls_back_to_queued() {
+        // TaskStatus::try_from(99) returns Err; unwrap_or(TaskStatus::Queued) picks the fallback.
+        // The row must still render with the "queued" label instead of panicking.
+        let mut app = make_app().await;
+        app.tasks = vec![Task { id: "t-bad".into(), status: 99, ..Default::default() }];
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "queued"), "invalid status must fall back to Queued and render 'queued'");
+    }
+
+    #[tokio::test]
+    async fn render_workers_unknown_status_falls_back_to_idle() {
+        // WorkerStatus::try_from(99) returns Err; unwrap_or(WorkerStatus::Idle) picks the fallback.
+        // The row must still render with the "idle" label instead of panicking.
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.worker_status = Some(WorkerStatusData {
+            total: 1,
+            busy: 0,
+            idle: 1,
+            workers: vec![WorkerInfo {
+                worker_id: "w-bad".into(),
+                status: 99,
+                ..Default::default()
+            }],
+        });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "idle"), "invalid worker status must fall back to Idle and render 'idle'");
+    }
 }
