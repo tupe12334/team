@@ -453,4 +453,18 @@ describe("QueuePanel – handler wiring", () => {
     fireEvent.change(screen.getByPlaceholderText("url"), { target: { value: "https://github.com/acme/app/issues/1" } });
     expect(setUrl).toHaveBeenCalledWith("https://github.com/acme/app/issues/1");
   });
+
+  it("calls handleEnqueue when the enqueue form is submitted", () => {
+    // `<form onSubmit={handleEnqueue}>` — no test previously submitted this form.
+    // fireEvent.submit dispatches the native submit event which React routes to onSubmit.
+    // getElementsByClassName[0] returns Element (never null), avoiding both ! and as-cast
+    // lint conflicts (@typescript-eslint/no-non-null-assertion vs non-nullable-type-assertion-style).
+    const handleEnqueue = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ handleEnqueue }));
+    const { container } = render(<QueuePanel />);
+    const forms = container.getElementsByClassName("queue-panel__form");
+    expect(forms.length).toBeGreaterThan(0);
+    fireEvent.submit(forms[0]);
+    expect(handleEnqueue).toHaveBeenCalled();
+  });
 });

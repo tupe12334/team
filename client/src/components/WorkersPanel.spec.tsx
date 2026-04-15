@@ -134,6 +134,23 @@ describe("WorkersPanel – task-info visibility", () => {
 // Worker agent visibility: shown only when currentAgent is truthy
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stats grid values: Total / Busy / Idle counts flow through to the DOM
+// ---------------------------------------------------------------------------
+
+describe("WorkersPanel – stats grid values", () => {
+  it("renders the correct Total, Busy, and Idle counts in the stats grid", () => {
+    // The existing stats-grid test only checks that `.workers-panel__stats` exists;
+    // it never verifies that data.total/busy/idle actually appear in the rendered output.
+    // This test exercises the `{value}` interpolation inside the workers-stat__value spans.
+    mockHook.mockReturnValue(makePanelState({ data: makeData({ total: 5, busy: 2, idle: 3 }) }));
+    render(<WorkersPanel />);
+    expect(screen.getByText("5")).toBeTruthy(); // data.total → workers-stat__value
+    expect(screen.getByText("2")).toBeTruthy(); // data.busy
+    expect(screen.getByText("3")).toBeTruthy(); // data.idle
+  });
+});
+
 describe("WorkersPanel – agent visibility", () => {
   it("shows agent name when currentAgent is set on a BUSY worker", () => {
     // `w.currentAgent` → truthy → renders `· agent: <span>{agent}</span>`
