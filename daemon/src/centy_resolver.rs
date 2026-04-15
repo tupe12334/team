@@ -127,6 +127,23 @@ mod tests {
         assert!(msg.contains(uuid), "error must include uuid: {msg}");
     }
 
+    /// Empty items array — the realistic Centy API "not found" response when a UUID
+    /// isn't tracked in any project.  `response["items"][0]` yields `Value::Null` via
+    /// serde_json's null-propagation; the subsequent index chain also yields Null; and
+    /// `as_i64()` returns None, so `ok_or_else` fires with "not found in any tracked
+    /// centy project".  This is distinct from `parse_centy_output_missing_display_number`
+    /// (non-empty list, field absent) — both reach the same Err arm but from different
+    /// JSON shapes, reflecting different root causes at the Centy API level.
+    #[test]
+    fn parse_centy_output_empty_items_array() {
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        let stdout = r#"{"items":[]}"#;
+        let result = parse_centy_output(stdout, "", uuid);
+        let msg = result.unwrap_err();
+        assert!(msg.contains("not found in any tracked centy project"), "got: {msg}");
+        assert!(msg.contains(uuid), "error must include uuid: {msg}");
+    }
+
     /// Valid JSON but `displayNumber` field is absent → `ok_or_else` Err arm.
     #[test]
     fn parse_centy_output_missing_display_number() {
