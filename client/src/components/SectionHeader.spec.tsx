@@ -15,7 +15,7 @@ describe("SectionHeader", () => {
   it("renders the right slot when the right prop is provided (truthy arm)", () => {
     // Exercises the `{right}` expression when right is a non-null ReactNode.
     render(
-      <SectionHeader right={<span data-testid="right-slot">live · 5s</span>}>
+      <SectionHeader right={<span className="test-right-slot" data-testid="right-slot">live · 5s</span>}>
         Workers
       </SectionHeader>
     );
