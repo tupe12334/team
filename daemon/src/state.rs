@@ -596,6 +596,33 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Exercises the `Ok(contents) → toml::from_str succeeds → .into()` arm of `load_config`,
+    /// which is the full success path reached only when a well-formed TOML config file exists at
+    /// startup.  All other `AppState::new` tests either hit the missing-file arm (config doesn't
+    /// exist → `Err(_) → ConfigFile::default()`) or the parse-failure arm (file exists but
+    /// `toml::from_str` fails → `unwrap_or_default()`).  Neither exercises the branch where the
+    /// file is readable AND parseable — the normal daemon-restart scenario.
+    #[test]
+    fn load_config_success_path_reads_valid_toml_config() {
+        let dir = format!("/tmp/team-state-load-config-ok-{}", uuid::Uuid::new_v4());
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = format!("{dir}/config.toml");
+        std::fs::write(
+            &config_path,
+            "workers_count = 8\nlog_level = \"debug\"\nenabled_agents = [\"review\", \"qa\"]\n",
+        )
+        .unwrap();
+        let state = AppState::new(config_path);
+        assert_eq!(state.config.workers_count, 8, "workers_count must be loaded from TOML");
+        assert_eq!(state.config.log_level, "debug", "log_level must be loaded from TOML");
+        assert_eq!(
+            state.config.enabled_agents,
+            vec!["review", "qa"],
+            "enabled_agents must be loaded from TOML"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Covers the `Some(_)` arm of `j.created_at.map(...)` and `j.updated_at.map(...)` in
     /// `Task::from(TaskJson)`.  Every other load test writes `null` for both timestamp fields,
     /// so only the `None` → `None` path is exercised there.  Here both are non-null integers
