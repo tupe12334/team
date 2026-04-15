@@ -129,6 +129,10 @@ impl App {
             Tab::Workers => self.worker_status.as_ref().map_or(0, |w| w.workers.len()),
             Tab::Daemon => 0,
         };
+        self.clamp_selection(active_len);
+    }
+
+    fn clamp_selection(&mut self, active_len: usize) {
         if active_len > 0 && self.selected_task >= active_len {
             self.selected_task = active_len - 1;
         }
@@ -396,6 +400,41 @@ mod tests {
         assert!(app.worker_status.is_none());
         // active_len = 0 → clamping condition `active_len > 0` is false → selection unchanged
         assert_eq!(app.selected_task, 0);
+    }
+
+    /// clamp_selection must reduce selected_task to active_len-1 when the selection points
+    /// past the end of the list (e.g. after the list shrinks on a refresh).
+    /// This is the true arm of `if active_len > 0 && self.selected_task >= active_len`.
+    /// refresh() always clears data when the daemon is unreachable → active_len=0 in all
+    /// refresh tests → the true arm is never reachable there; testing clamp_selection directly
+    /// covers it without needing a running daemon.
+    #[tokio::test]
+    async fn clamp_selection_reduces_out_of_bounds_index() {
+        let mut app = make_app().await;
+        app.selected_task = 5;
+        app.clamp_selection(3); // active_len=3, selected_task=5 ≥ 3 → clamp to 2
+        assert_eq!(app.selected_task, 2, "out-of-bounds selection must be clamped to active_len - 1");
+    }
+
+    /// When selected_task is already within bounds the guard must not fire —
+    /// the `else` (false) arm: `active_len > 0 && selected_task < active_len`.
+    #[tokio::test]
+    async fn clamp_selection_noop_when_in_bounds() {
+        let mut app = make_app().await;
+        app.selected_task = 1;
+        app.clamp_selection(3); // active_len=3, selected_task=1 < 3 → no-op
+        assert_eq!(app.selected_task, 1, "in-bounds selection must not be changed");
+    }
+
+    /// When active_len is zero the first condition `active_len > 0` is false so the
+    /// clamping must not fire even if selected_task is arbitrarily large — prevents
+    /// subtraction overflow on `active_len - 1`.
+    #[tokio::test]
+    async fn clamp_selection_noop_when_active_len_zero() {
+        let mut app = make_app().await;
+        app.selected_task = 5;
+        app.clamp_selection(0); // active_len=0 → guard false → no-op
+        assert_eq!(app.selected_task, 5, "selection must not be changed when active_len is zero");
     }
 
     /// refresh() computes active_len via a match on active_tab.  All existing refresh tests
