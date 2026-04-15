@@ -273,7 +273,7 @@ describe("QueuePanel – delete button label", () => {
     const buttons = container.querySelectorAll<HTMLButtonElement>(".queue-table__delete");
     const deletingBtn = buttons[0]; // t1 → "…", disabled
     const idleBtn = buttons[1];     // t2 → "✕", enabled
-    expect(deletingBtn?.disabled).toBe(true);
-    expect(idleBtn?.disabled).toBe(false);
+    expect(deletingBtn.disabled).toBe(true);
+    expect(idleBtn.disabled).toBe(false);
   });
 });
