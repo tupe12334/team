@@ -219,6 +219,59 @@ describe("QueuePanel – EnqueueForm provider switch", () => {
 });
 
 // ---------------------------------------------------------------------------
+// EnqueueForm agent select: agents.map and title resolution
+// ---------------------------------------------------------------------------
+
+describe("QueuePanel – EnqueueForm agent select", () => {
+  it("renders agent <option> elements from the agents list when non-empty", () => {
+    // Exercises agents.map(a => <option>{a.name}</option>) — all other tests use
+    // agents:[] so the map body never runs and no agent options are ever rendered.
+    mockHook.mockReturnValue(makePanelState({
+      agents: [
+        { name: "review", description: "Code review" },
+        { name: "qa", description: "Quality assurance" },
+      ],
+    }));
+    render(<QueuePanel />);
+    expect(screen.getByText("review")).toBeTruthy();
+    expect(screen.getByText("qa")).toBeTruthy();
+  });
+
+  it("sets the agent select title to the matched description when agent matches (?.description truthy arm)", () => {
+    // agents.find((a) => a.name === agent)?.description returns the description string
+    // when agent matches an entry.  All other tests have agents:[] so find() always
+    // returns undefined and ?.description short-circuits to undefined (falsy arm only).
+    mockHook.mockReturnValue(makePanelState({
+      agents: [{ name: "review", description: "Code review" }],
+      agent: "review",
+    }));
+    const { container } = render(<QueuePanel />);
+    const select = container.querySelector<HTMLSelectElement>(".queue-panel__agent");
+    expect(select?.title).toBe("Code review");
+  });
+
+  it("renders the priority input with an empty value when priority is 0 (falsy || arm)", () => {
+    // `value={priority || ""}` — when priority=0 the input must show "" so the
+    // placeholder is visible and the field appears empty.  All tests default priority
+    // to 0 but none explicitly assert the rendered value is "".
+    mockHook.mockReturnValue(makePanelState({ priority: 0 }));
+    const { container } = render(<QueuePanel />);
+    const input = container.querySelector<HTMLInputElement>('input[placeholder="priority"]');
+    expect(input?.value).toBe("");
+  });
+
+  it("renders the priority input with the numeric value when priority is non-zero (truthy || arm)", () => {
+    // `value={priority || ""}` — when priority=5 the expression evaluates to 5
+    // (truthy), so the input shows the number.  Only the falsy (priority=0 → "")
+    // arm is covered by the default panel state in other tests.
+    mockHook.mockReturnValue(makePanelState({ priority: 5 }));
+    const { container } = render(<QueuePanel />);
+    const input = container.querySelector<HTMLInputElement>('input[placeholder="priority"]');
+    expect(input?.value).toBe("5");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Submit button label: "Adding…" vs "+ Enqueue" — both arms of the ternary
 // ---------------------------------------------------------------------------
 
