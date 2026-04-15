@@ -334,6 +334,20 @@ mod tests {
         assert!(issue_ref_json_to_proto(j).is_none());
     }
 
+    // --- Proto conversion: unreachable! guard ---
+
+    /// The `None` arm of `From<IssueRef>` asserts that a well-formed proto
+    /// `IssueRef` always carries a populated `ref` variant.  Constructing one
+    /// with `r#ref: None` and calling `from()` must panic with the exact
+    /// sentinel message, confirming the guard is wired correctly and will catch
+    /// any future regression that strips the `ref` field before conversion.
+    #[test]
+    #[should_panic(expected = "IssueRef always has a ref variant")]
+    fn from_issue_ref_with_none_ref_panics() {
+        let proto = IssueRef { r#ref: None };
+        let _ = IssueRefJson::from(proto);
+    }
+
     // --- JSON serde round-trips ---
 
     #[test]
