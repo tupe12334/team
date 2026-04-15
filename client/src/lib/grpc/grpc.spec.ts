@@ -55,6 +55,12 @@ describe("grpcHttpStatus", () => {
   it("returns 502 for plain errors without a code", () => { expect(grpcHttpStatus(new Error("network"))).toBe(502); });
   it("returns 502 for null", () => { expect(grpcHttpStatus(null)).toBe(502); });
   it("returns 502 when code is a non-numeric type", () => { expect(grpcHttpStatus({ code: "error" })).toBe(502); });
+  it("returns 502 for a primitive string (typeof not object, outer guard short-circuits)", () => {
+    // `typeof "some string" === "object"` is false — the outer guard short-circuits and
+    // the function falls straight to `return 502`.  All other 502 tests pass objects
+    // (Error, plain objects) or null; none pass a primitive value of any kind.
+    expect(grpcHttpStatus("some error string")).toBe(502);
+  });
 });
 
 describe("grpcCall", () => {

@@ -421,6 +421,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn render_daemon_shows_config_path() {
+        // `render_daemon_shows_version_and_uptime_when_some` asserts version and uptime
+        // but never checks that config_path actually appears in the buffer.
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        app.daemon_info = Some(DaemonInfo {
+            version: "0.1.0".into(),
+            uptime_seconds: 0,
+            config_path: "/home/user/config.toml".into(),
+            workers_count: 1,
+        });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "/home/user/config.toml"), "config_path must appear in daemon info panel");
+    }
+
+    #[tokio::test]
+    async fn render_daemon_shows_workers_count() {
+        // `render_daemon_shows_version_and_uptime_when_some` asserts version and uptime
+        // but never checks that workers_count actually appears in the buffer.
+        // Use a distinctive value (7) to avoid false-positive matches.
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        app.daemon_info = Some(DaemonInfo {
+            version: "0.1.0".into(),
+            uptime_seconds: 0,
+            config_path: "/etc/d.toml".into(),
+            workers_count: 7,
+        });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "7"), "workers_count must appear in daemon info panel");
+    }
+
+    #[tokio::test]
     async fn render_queue_shows_running_label() {
         let mut app = make_app().await;
         app.tasks = vec![Task { id: "t1".into(), status: TaskStatus::Running as i32, ..Default::default() }];
