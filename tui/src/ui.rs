@@ -446,4 +446,42 @@ mod tests {
         terminal.draw(|f| render(f, &app)).unwrap();
         assert!(buffer_has(&terminal, "failed"), "Failed task must render 'failed'");
     }
+
+    #[tokio::test]
+    async fn render_queue_shows_queued_label() {
+        let mut app = make_app().await;
+        app.tasks = vec![Task { id: "t4".into(), status: TaskStatus::Queued as i32, ..Default::default() }];
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "queued"), "Queued task must render 'queued'");
+    }
+
+    #[tokio::test]
+    async fn render_queue_shows_agent_name_when_task_has_agent() {
+        let mut app = make_app().await;
+        app.tasks = vec![Task { id: "t5".into(), agent: Some("review".into()), ..Default::default() }];
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "review"), "task.agent Some value must appear in agent column");
+    }
+
+    #[tokio::test]
+    async fn render_queue_empty_tasks_does_not_crash_and_shows_zero_count() {
+        let app = make_app().await;
+        // tasks is empty by default; state.select is NOT called (the if !app.tasks.is_empty() guard is false)
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "Queue (0 tasks)"), "empty queue must show 0 task count");
+    }
+
+    #[tokio::test]
+    async fn render_workers_some_with_empty_workers_list_does_not_crash() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        // ws.workers is empty; state.select is NOT called (the if !ws.workers.is_empty() guard is false)
+        app.worker_status = Some(WorkerStatusData { total: 0, busy: 0, idle: 0, workers: vec![] });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "Workers (0)"), "empty worker list must show 0 count");
+    }
 }
