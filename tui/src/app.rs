@@ -26,6 +26,15 @@ impl Tab {
     }
 }
 
+/// Sets `slot` to `msg` only if `slot` is currently `None` (first-error-wins).
+/// Extracted from `refresh()` so both the `None` (sets) and `Some` (skips) arms
+/// are testable without requiring a live or mocked gRPC client.
+fn record_first_error(slot: &mut Option<String>, msg: String) {
+    if slot.is_none() {
+        *slot = Some(msg);
+    }
+}
+
 pub struct App {
     pub client: Client,
     pub active_tab: Tab,
@@ -108,9 +117,7 @@ impl App {
             Ok(status) => self.worker_status = status,
             Err(e) => {
                 self.worker_status = None; // clear stale data
-                if self.error.is_none() {
-                    self.error = Some(format!("Workers: {e}"));
-                }
+                record_first_error(&mut self.error, format!("Workers: {e}"));
             }
         }
 
@@ -118,9 +125,7 @@ impl App {
             Ok(info) => self.daemon_info = info,
             Err(e) => {
                 self.daemon_info = None; // clear stale data
-                if self.error.is_none() {
-                    self.error = Some(format!("Daemon: {e}"));
-                }
+                record_first_error(&mut self.error, format!("Daemon: {e}"));
             }
         }
 
@@ -461,6 +466,33 @@ mod tests {
         app.selected_task = 0;
         app.select_prev();
         assert_eq!(app.selected_task, 0, "select_prev with a single-item list must keep selection at 0");
+    }
+
+    // --- record_first_error tests ---
+
+    /// When the slot is None, record_first_error must set it to the provided message.
+    /// This is the `true` arm of `if slot.is_none()` — the only arm exercised in the
+    /// Workers/Daemon error paths of `refresh()` when Queue has already succeeded and
+    /// left `self.error` as None.
+    #[test]
+    fn record_first_error_sets_slot_when_none() {
+        let mut slot: Option<String> = None;
+        record_first_error(&mut slot, "Workers: connect failed".into());
+        assert_eq!(slot.as_deref(), Some("Workers: connect failed"));
+    }
+
+    /// When the slot is already Some, record_first_error must not overwrite it.
+    /// This is the `false` arm of `if slot.is_none()` — the path taken when Queue
+    /// already set an error and Workers/Daemon errors are secondary.
+    #[test]
+    fn record_first_error_skips_when_slot_already_set() {
+        let mut slot: Option<String> = Some("Queue: connect failed".into());
+        record_first_error(&mut slot, "Workers: also failed".into());
+        assert_eq!(
+            slot.as_deref(),
+            Some("Queue: connect failed"),
+            "first error must not be overwritten by a subsequent error"
+        );
     }
 
     /// refresh() computes active_len via a match on active_tab.  All existing refresh tests
