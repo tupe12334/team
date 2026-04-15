@@ -217,3 +217,63 @@ describe("QueuePanel – EnqueueForm provider switch", () => {
     expect(container.querySelector('input[placeholder="org"]')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Submit button label: "Adding…" vs "+ Enqueue" — both arms of the ternary
+// ---------------------------------------------------------------------------
+
+describe("QueuePanel – submit button label", () => {
+  it("shows '+ Enqueue' when submitting is false (default arm)", () => {
+    mockHook.mockReturnValue(makePanelState({ submitting: false }));
+    render(<QueuePanel />);
+    expect(screen.getByText("+ Enqueue")).toBeTruthy();
+  });
+
+  it("shows 'Adding…' and is disabled when submitting is true (submitting arm)", () => {
+    mockHook.mockReturnValue(makePanelState({ submitting: true }));
+    const { container } = render(<QueuePanel />);
+    expect(screen.getByText("Adding…")).toBeTruthy();
+    const btn = container.querySelector<HTMLButtonElement>(".queue-panel__submit");
+    expect(btn?.disabled).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Delete button label: "…" vs "✕" — both arms of the ternary per task row
+// ---------------------------------------------------------------------------
+
+describe("QueuePanel – delete button label", () => {
+  it("shows '✕' when deletingId does not match the task id (idle arm)", () => {
+    mockHook.mockReturnValue(makePanelState({
+      tasks: [makeTask({ id: "t1" })],
+      deletingId: null,
+    }));
+    render(<QueuePanel />);
+    expect(screen.getByText("✕")).toBeTruthy();
+  });
+
+  it("shows '…' and is disabled when deletingId matches the task id (deleting arm)", () => {
+    mockHook.mockReturnValue(makePanelState({
+      tasks: [makeTask({ id: "t1" })],
+      deletingId: "t1",
+    }));
+    const { container } = render(<QueuePanel />);
+    expect(screen.getByText("…")).toBeTruthy();
+    const btn = container.querySelector<HTMLButtonElement>(".queue-table__delete");
+    expect(btn?.disabled).toBe(true);
+  });
+
+  it("shows '✕' (enabled) for unrelated task when another task is being deleted", () => {
+    // Two rows: t1 is deleting (deletingId="t1"), t2 is idle — t2's button must not be disabled.
+    mockHook.mockReturnValue(makePanelState({
+      tasks: [makeTask({ id: "t1" }), makeTask({ id: "t2" })],
+      deletingId: "t1",
+    }));
+    const { container } = render(<QueuePanel />);
+    const buttons = container.querySelectorAll<HTMLButtonElement>(".queue-table__delete");
+    const deletingBtn = buttons[0]; // t1 → "…", disabled
+    const idleBtn = buttons[1];     // t2 → "✕", enabled
+    expect(deletingBtn?.disabled).toBe(true);
+    expect(idleBtn?.disabled).toBe(false);
+  });
+});
