@@ -534,6 +534,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn render_tabs_shows_all_tab_titles_and_block_header() {
+        // make_app() defaults to Tab::Queue as the active tab.
+        // Tab::Queue takes the `if *t == app.active_tab` branch (Yellow+BOLD styling);
+        // Tab::Workers and Tab::Daemon take the `else` branch (unstyled Line).
+        // This test verifies that all three titles and the block header are present in
+        // the rendered buffer, explicitly exercising both branches of the style condition
+        // in render_tabs — something no other test asserts directly.
+        let app = make_app().await;
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "Queue"), "active tab title must appear in tabs bar");
+        assert!(buffer_has(&terminal, "Workers"), "inactive tab title must appear in tabs bar (else branch)");
+        assert!(buffer_has(&terminal, "Daemon"), "inactive tab title must appear in tabs bar (else branch)");
+        assert!(buffer_has(&terminal, "team"), "block title must appear in tabs bar");
+    }
+
+    #[tokio::test]
     async fn render_workers_non_selected_worker_uses_default_style() {
         // All existing worker tests use exactly 1 worker so i==0==selected_task — the `else` branch is never reached.
         // With 2 workers and selected_task=0, the worker at index 1 takes the `else { Style::default() }` arm.
