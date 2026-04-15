@@ -91,6 +91,7 @@ async fn enqueue_new_issues(state: &Arc<Mutex<AppState>>, issues: Vec<CentyIssue
     }
 }
 
+#[derive(Debug)]
 struct CentyIssue {
     organization: String,
     repository: String,
@@ -123,7 +124,15 @@ async fn fetch_in_queue_issues() -> Result<Vec<CentyIssue>, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_fetch_stdout(&stdout)
+}
 
+/// Parse the stdout of `centy list issues --json` into a list of `CentyIssue`.
+///
+/// Extracted as a pure function so the three branches — no JSON array present,
+/// malformed JSON, and valid JSON with optional prefix — are testable without
+/// spawning a real centy process.
+fn parse_fetch_stdout(stdout: &str) -> Result<Vec<CentyIssue>, String> {
     // centy sometimes prints warnings to stdout before the JSON array.
     let json_start = match stdout.find('[') {
         Some(pos) => pos,
@@ -595,6 +604,56 @@ mod tests {
         let after = state.lock().await.queue.len();
         assert!(after >= before, "poll_once must not shrink the queue");
         let _ = std::fs::remove_file(&path);
+    }
+
+    // --- parse_fetch_stdout tests (pure, no subprocess) ---
+
+    /// No `[` in stdout (e.g. only warning lines) → the None arm of `stdout.find('[')` →
+    /// returns Ok(vec![]) rather than an error, because missing JSON is not a failure —
+    /// it means centy produced no output (e.g. no projects configured).
+    #[test]
+    fn parse_fetch_stdout_no_json_array_returns_empty_ok() {
+        let result = parse_fetch_stdout("Warning: no projects configured\n");
+        assert!(result.unwrap().is_empty(), "no '[' in output must return Ok(vec![])");
+    }
+
+    /// Empty stdout → same None arm as the warning-only case.
+    #[test]
+    fn parse_fetch_stdout_empty_stdout_returns_empty_ok() {
+        let result = parse_fetch_stdout("");
+        assert!(result.unwrap().is_empty(), "empty stdout must return Ok(vec![])");
+    }
+
+    /// `[` found but the JSON after it is malformed → `serde_json::from_str` error →
+    /// Err("failed to parse centy JSON: ...").  This branch is unreachable without
+    /// spawning a real centy process; extracting parse_fetch_stdout makes it testable.
+    #[test]
+    fn parse_fetch_stdout_malformed_json_returns_err() {
+        let result = parse_fetch_stdout("[{not valid json");
+        let msg = result.unwrap_err();
+        assert!(msg.contains("failed to parse centy JSON"), "got: {msg}");
+    }
+
+    /// Prefix text before `[` must be skipped so the JSON is parsed from the correct offset.
+    /// Mirrors the `parse_centy_output_skips_prefix_before_json` pattern in centy_resolver.
+    #[test]
+    fn parse_fetch_stdout_skips_prefix_before_json_array() {
+        let stdout = r#"Some warning line
+[{"metadata":{"displayNumber":3},"projectPath":"/home/user/dev/acme/backend"}]"#;
+        let result = parse_fetch_stdout(stdout).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].number, "3");
+        assert_eq!(result[0].organization, "acme");
+        assert_eq!(result[0].repository, "backend");
+    }
+
+    /// Empty JSON array `[]` → `items` is empty → `filter_map` produces nothing → Ok(vec![]).
+    /// Distinct from the no-`[` case (which returns before parsing); here we parse successfully
+    /// but the result set is empty.
+    #[test]
+    fn parse_fetch_stdout_empty_json_array_returns_empty_ok() {
+        let result = parse_fetch_stdout("[]");
+        assert!(result.unwrap().is_empty(), "empty JSON array must return Ok(vec![])");
     }
 
     /// When multiple new issues are enqueued but save_queue then fails, truncate must
