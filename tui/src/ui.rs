@@ -261,7 +261,30 @@ fn format_issue_ref(issue_ref: &Option<crate::client::proto::IssueRef>) -> Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, IssueRef, JiraIssueRef};
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use crate::app::{App, Tab};
+    use crate::client::{DaemonInfo, WorkerStatusData, Task, TaskStatus, WorkerStatus};
+    use crate::client::proto::{issue_ref, CentyIssueRef, GitHubIssueRef, IssueRef, JiraIssueRef, WorkerInfo};
+
+    async fn make_app() -> App {
+        App::new("http://[::1]:50051".to_string()).expect("failed to create app")
+    }
+
+    fn make_terminal() -> Terminal<TestBackend> {
+        Terminal::new(TestBackend::new(80, 30)).unwrap()
+    }
+
+    fn buffer_has(terminal: &Terminal<TestBackend>, text: &str) -> bool {
+        let buf = terminal.backend().buffer();
+        let area = buf.area();
+        (0..area.height).any(|y| {
+            let line: String = (0..area.width)
+                .map(|x| buf.cell((x, y)).map_or(" ".to_string(), |c| c.symbol().to_string()))
+                .collect();
+            line.contains(text)
+        })
+    }
 
     fn github(org: &str, repo: &str, number: &str) -> Option<IssueRef> {
         Some(IssueRef { r#ref: Some(issue_ref::Ref::Github(GitHubIssueRef {
@@ -300,5 +323,127 @@ mod tests {
     #[test]
     fn format_jira() {
         assert_eq!(format_issue_ref(&jira("PROJ-123")), "jira:PROJ-123");
+    }
+
+    #[tokio::test]
+    async fn render_daemon_shows_placeholder_when_daemon_info_is_none() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "No daemon info available"), "None arm must render placeholder");
+    }
+
+    #[tokio::test]
+    async fn render_daemon_shows_version_and_uptime_when_some() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Daemon;
+        app.daemon_info = Some(DaemonInfo {
+            version: "1.2.3".into(),
+            uptime_seconds: 3725, // 01:02:05
+            config_path: "/etc/daemon.toml".into(),
+            workers_count: 4,
+        });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "1.2.3"), "version must appear in daemon info");
+        assert!(buffer_has(&terminal, "01:02:05"), "uptime must be formatted as HH:MM:SS");
+    }
+
+    #[tokio::test]
+    async fn render_workers_shows_placeholder_when_worker_status_is_none() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "No worker data available"), "None arm must render placeholder");
+    }
+
+    #[tokio::test]
+    async fn render_workers_idle_worker_shows_idle_and_dashes_for_empty_fields() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.worker_status = Some(WorkerStatusData {
+            total: 1,
+            busy: 0,
+            idle: 1,
+            workers: vec![WorkerInfo {
+                worker_id: "w-idle".into(),
+                status: WorkerStatus::Idle as i32,
+                current_task_id: "".into(),
+                current_agent: "".into(),
+                ..Default::default()
+            }],
+        });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "idle"), "idle worker must render 'idle'");
+        assert!(buffer_has(&terminal, "-"), "empty task_id and agent must render as '-'");
+    }
+
+    #[tokio::test]
+    async fn render_workers_busy_worker_shows_busy_and_agent() {
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.worker_status = Some(WorkerStatusData {
+            total: 1,
+            busy: 1,
+            idle: 0,
+            workers: vec![WorkerInfo {
+                worker_id: "w-busy".into(),
+                status: WorkerStatus::Busy as i32,
+                current_task_id: "task-abc".into(),
+                current_agent: "review".into(),
+                ..Default::default()
+            }],
+        });
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "busy"), "busy worker must render 'busy'");
+        assert!(buffer_has(&terminal, "review"), "current agent must appear in the row");
+    }
+
+    #[tokio::test]
+    async fn render_statusbar_shows_error_text_when_error_is_some() {
+        let mut app = make_app().await;
+        app.error = Some("daemon unreachable".into());
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "Error: daemon unreachable"), "error must appear in status bar");
+    }
+
+    #[tokio::test]
+    async fn render_statusbar_shows_keybinding_hints_when_no_error() {
+        let app = make_app().await;
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "quit"), "keybinding hints must appear when no error");
+    }
+
+    #[tokio::test]
+    async fn render_queue_shows_running_label() {
+        let mut app = make_app().await;
+        app.tasks = vec![Task { id: "t1".into(), status: TaskStatus::Running as i32, ..Default::default() }];
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "running"), "Running task must render 'running'");
+    }
+
+    #[tokio::test]
+    async fn render_queue_shows_completed_label() {
+        let mut app = make_app().await;
+        app.tasks = vec![Task { id: "t2".into(), status: TaskStatus::Completed as i32, ..Default::default() }];
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "completed"), "Completed task must render 'completed'");
+    }
+
+    #[tokio::test]
+    async fn render_queue_shows_failed_label() {
+        let mut app = make_app().await;
+        app.tasks = vec![Task { id: "t3".into(), status: TaskStatus::Failed as i32, ..Default::default() }];
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "failed"), "Failed task must render 'failed'");
     }
 }
