@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { IssueRef } from "@/gen/queue";
 import type { Task, IssueProvider } from "@/components/useQueuePanel";
 
@@ -268,6 +268,50 @@ describe("QueuePanel – EnqueueForm agent select", () => {
     const { container } = render(<QueuePanel />);
     const input = container.querySelector<HTMLInputElement>('input[placeholder="priority"]');
     expect(input?.value).toBe("5");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Priority input onChange: Math.trunc / Number() / || 0 / Math.max(0) branches
+// ---------------------------------------------------------------------------
+
+describe("QueuePanel – priority input interaction", () => {
+  it("calls setPriority with the parsed integer for a valid positive input (happy path)", () => {
+    // Math.max(0, Math.trunc(Number("5")) || 0) = Math.max(0, 5) = 5
+    const setPriority = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ setPriority }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("priority"), { target: { value: "5" } });
+    expect(setPriority).toHaveBeenCalledWith(5);
+  });
+
+  it("calls setPriority with 0 when input is cleared (empty string → NaN → || 0 fallback)", () => {
+    // Number("") = 0; Math.trunc(0) = 0; 0 || 0 = 0 (falsy arm taken)
+    // Start with priority:5 so the input is "5" and clearing it is a real change.
+    const setPriority = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ priority: 5, setPriority }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("priority"), { target: { value: "" } });
+    expect(setPriority).toHaveBeenCalledWith(0);
+  });
+
+  it("calls setPriority with 0 when input is negative (Math.max clamp branch)", () => {
+    // Math.trunc(Number("-3")) = -3; -3 || 0 = -3 (truthy, || passes through);
+    // Math.max(0, -3) = 0 — the || arm does NOT fire, Math.max clamps it.
+    const setPriority = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ setPriority }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("priority"), { target: { value: "-3" } });
+    expect(setPriority).toHaveBeenCalledWith(0);
+  });
+
+  it("calls setPriority with the truncated integer for a decimal input (Math.trunc branch)", () => {
+    // Number("5.7") = 5.7; Math.trunc(5.7) = 5; 5 || 0 = 5; Math.max(0, 5) = 5
+    const setPriority = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ setPriority }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("priority"), { target: { value: "5.7" } });
+    expect(setPriority).toHaveBeenCalledWith(5);
   });
 });
 
