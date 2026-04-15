@@ -118,22 +118,23 @@ describe("ConfigPanel – save button disabled state", () => {
   it("disables Save when saving is true", () => {
     mockHook.mockReturnValue(makePanelState({ draft: makeDraft(), saving: true, isDirty: true }));
     const { container } = render(<ConfigPanel />);
-    const btn = container.querySelector(".config-panel__save-btn") as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+    // Use the generic querySelector<T> overload — avoids both `as` casts and `!` assertions.
+    const btn = container.querySelector<HTMLButtonElement>(".config-panel__save-btn");
+    expect(btn?.disabled).toBe(true);
   });
 
   it("disables Save when isDirty is falsy (no unsaved changes)", () => {
     mockHook.mockReturnValue(makePanelState({ draft: makeDraft(), saving: false, isDirty: false }));
     const { container } = render(<ConfigPanel />);
-    const btn = container.querySelector(".config-panel__save-btn") as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
+    const btn = container.querySelector<HTMLButtonElement>(".config-panel__save-btn");
+    expect(btn?.disabled).toBe(true);
   });
 
   it("enables Save when isDirty is true and not saving", () => {
     mockHook.mockReturnValue(makePanelState({ draft: makeDraft(), saving: false, isDirty: true }));
     const { container } = render(<ConfigPanel />);
-    const btn = container.querySelector(".config-panel__save-btn") as HTMLButtonElement;
-    expect(btn.disabled).toBe(false);
+    const btn = container.querySelector<HTMLButtonElement>(".config-panel__save-btn");
+    expect(btn?.disabled).toBe(false);
   });
 });
 
@@ -146,16 +147,16 @@ describe("ConfigPanel – enabledAgents field", () => {
     mockHook.mockReturnValue(makePanelState({
       draft: makeDraft({ enabledAgents: ["review", "qa", "ship"] }),
     }));
-    const { container } = render(<ConfigPanel />);
-    const input = container.querySelector('input[placeholder]') as HTMLInputElement;
-    expect(input.value).toBe("review, qa, ship");
+    render(<ConfigPanel />);
+    // getByDisplayValue finds the input by its current value — no cast needed.
+    expect(screen.getByDisplayValue("review, qa, ship")).toBeTruthy();
   });
 
   it("shows an empty string when enabledAgents is empty", () => {
     mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ enabledAgents: [] }) }));
     const { container } = render(<ConfigPanel />);
-    // Find the agents text input (placeholder="e.g. review, qa, ship")
-    const input = container.querySelector('input[placeholder="e.g. review, qa, ship"]') as HTMLInputElement;
-    expect(input.value).toBe("");
+    // Use generic overload to get HTMLInputElement.value without `as` or `!`.
+    const input = container.querySelector<HTMLInputElement>('input[placeholder="e.g. review, qa, ship"]');
+    expect(input?.value).toBe("");
   });
 });
