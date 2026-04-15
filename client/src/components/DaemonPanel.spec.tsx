@@ -186,6 +186,15 @@ describe("DaemonPanel – conditional rendering", () => {
     const { container } = render(<DaemonPanel />);
     expect(container.querySelector(".daemon-panel__body")).toBeNull();
   });
+
+  it("renders the workersCount value in the stats grid", () => {
+    // `<Stat label="Workers" value={info.workersCount} />` — existing tests check
+    // version, uptime and configPath but never assert that workersCount appears in
+    // the rendered DOM.  Use a distinct value (8) to avoid false-positive matches.
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo({ workersCount: 8 }) }));
+    render(<DaemonPanel />);
+    expect(screen.getByText("8")).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -376,6 +376,20 @@ describe("QueuePanel – delete button label", () => {
 });
 
 // ---------------------------------------------------------------------------
+// task.priority value: flows through to the table DOM
+// ---------------------------------------------------------------------------
+
+describe("QueuePanel – task priority rendering", () => {
+  it("renders the task priority value in the table row", () => {
+    // `<td>{task.priority}</td>` — all other tests default priority to 0 but no
+    // test explicitly asserts that the priority number appears in the rendered DOM.
+    mockHook.mockReturnValue(makePanelState({ tasks: [makeTask({ priority: 7 })] }));
+    render(<QueuePanel />);
+    expect(screen.getByText("7")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Handler wiring: onClick / onChange connections to hook callbacks
 // ---------------------------------------------------------------------------
 
