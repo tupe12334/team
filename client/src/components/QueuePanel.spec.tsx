@@ -374,3 +374,47 @@ describe("QueuePanel – delete button label", () => {
     expect(idleBtn.disabled).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Handler wiring: onClick / onChange connections to hook callbacks
+// ---------------------------------------------------------------------------
+
+describe("QueuePanel – handler wiring", () => {
+  it("calls handleDelete with the task id when the delete button is clicked", () => {
+    // onClick={() => { void handleDelete(task.id); }} — id must be forwarded correctly.
+    // All other delete tests only check the label/disabled state; none verify the handler fires.
+    const handleDelete = vi.fn().mockResolvedValue(undefined);
+    mockHook.mockReturnValue(makePanelState({
+      tasks: [makeTask({ id: "t1" })],
+      handleDelete,
+    }));
+    render(<QueuePanel />);
+    fireEvent.click(screen.getByText("✕"));
+    expect(handleDelete).toHaveBeenCalledWith("t1");
+  });
+
+  it("calls setProvider when the provider select changes", () => {
+    // onChange={(e) => { setProvider(e.target.value as typeof provider); }}
+    // No existing test fires a change event on the provider select.
+    const setProvider = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ provider: "GITHUB", setProvider }));
+    render(<QueuePanel />);
+    // getAllByRole("combobox") returns [providerSelect, agentSelect] in DOM order.
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "LINK" } });
+    expect(setProvider).toHaveBeenCalledWith("LINK");
+  });
+
+  it("calls setAgent when the agent select changes", () => {
+    // onChange={(e) => { setAgent(e.target.value); }}
+    // No existing test fires a change event on the agent select.
+    const setAgent = vi.fn();
+    mockHook.mockReturnValue(makePanelState({
+      agents: [{ name: "review", description: "Code review" }],
+      setAgent,
+    }));
+    render(<QueuePanel />);
+    // getAllByRole("combobox") returns [providerSelect, agentSelect] in DOM order.
+    fireEvent.change(screen.getAllByRole("combobox")[1], { target: { value: "review" } });
+    expect(setAgent).toHaveBeenCalledWith("review");
+  });
+});
