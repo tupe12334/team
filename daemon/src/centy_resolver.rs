@@ -36,11 +36,19 @@ pub async fn resolve_centy_uuid(uuid: &str) -> Result<String, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    parse_centy_output(&stdout, &stderr, uuid)
+}
 
+/// Parse centy CLI stdout to extract the integer display number.
+///
+/// `stderr` is included only for richer error messages when stdout has no JSON.
+/// This is a pure function extracted from `resolve_centy_uuid` so the JSON-parsing
+/// branches can be tested without spawning a real centy process.
+fn parse_centy_output(stdout: &str, stderr: &str, uuid: &str) -> Result<String, String> {
     let json_start = match stdout.find('{') {
         Some(pos) => pos,
         None => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!(
                 "centy returned no JSON when resolving UUID {uuid}: {stderr}"
             ));
@@ -95,6 +103,59 @@ mod tests {
         assert!(!is_uuid("6f4853a9-3d82-4013-b909-c2d637f4454"));
         // Second segment 3 chars (expected 4)
         assert!(!is_uuid("6f4853a9-3d8-4013-b909-c2d637f44541"));
+    }
+
+    // --- parse_centy_output unit tests (pure, no subprocess) ---
+
+    /// No `{` in stdout → the `None` arm of `stdout.find('{')` → Err("returned no JSON").
+    #[test]
+    fn parse_centy_output_no_json_in_stdout() {
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        let result = parse_centy_output("some text without braces", "stderr text", uuid);
+        let msg = result.unwrap_err();
+        assert!(msg.contains("returned no JSON"), "got: {msg}");
+        assert!(msg.contains(uuid), "error must include uuid: {msg}");
+    }
+
+    /// `{` found but the JSON after it is malformed → `serde_json::from_str` error branch.
+    #[test]
+    fn parse_centy_output_malformed_json() {
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        let result = parse_centy_output("prefix { not valid json }", "", uuid);
+        let msg = result.unwrap_err();
+        assert!(msg.contains("failed to parse centy JSON"), "got: {msg}");
+        assert!(msg.contains(uuid), "error must include uuid: {msg}");
+    }
+
+    /// Valid JSON but `displayNumber` field is absent → `ok_or_else` Err arm.
+    #[test]
+    fn parse_centy_output_missing_display_number() {
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        // Valid JSON with the right structure but no displayNumber
+        let stdout = r#"{"items":[{"item":{"metadata":{"title":"Issue title"}}}]}"#;
+        let result = parse_centy_output(stdout, "", uuid);
+        let msg = result.unwrap_err();
+        assert!(msg.contains("not found in any tracked centy project"), "got: {msg}");
+    }
+
+    /// Happy path: valid JSON with a `displayNumber` field → returns the number as a string.
+    #[test]
+    fn parse_centy_output_success() {
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        let stdout = r#"{"items":[{"item":{"metadata":{"displayNumber":42}}}]}"#;
+        let result = parse_centy_output(stdout, "", uuid);
+        assert_eq!(result.unwrap(), "42");
+    }
+
+    /// stdout.find('{') returns non-zero — there is a prefix before the JSON.
+    /// The `json_start` offset must skip it so from_str parses a valid object.
+    #[test]
+    fn parse_centy_output_skips_prefix_before_json() {
+        let uuid = "6f4853a9-3d82-4013-b909-c2d637f44541";
+        let stdout = r#"Some centy log line
+{"items":[{"item":{"metadata":{"displayNumber":7}}}]}"#;
+        let result = parse_centy_output(stdout, "", uuid);
+        assert_eq!(result.unwrap(), "7");
     }
 
     /// When centy is not installed, resolve_centy_uuid must return an Err that
