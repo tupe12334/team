@@ -417,4 +417,40 @@ describe("QueuePanel – handler wiring", () => {
     fireEvent.change(screen.getAllByRole("combobox")[1], { target: { value: "review" } });
     expect(setAgent).toHaveBeenCalledWith("review");
   });
+
+  it("calls setOrg when the org input changes (GITHUB provider)", () => {
+    // onChange={(e) => { setOrg(e.target.value); }} — no test previously fired on this input.
+    const setOrg = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ provider: "GITHUB", setOrg }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("org"), { target: { value: "acme" } });
+    expect(setOrg).toHaveBeenCalledWith("acme");
+  });
+
+  it("calls setRepo when the repo input changes (GITHUB provider)", () => {
+    // onChange={(e) => { setRepo(e.target.value); }}
+    const setRepo = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ provider: "GITHUB", setRepo }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("repo"), { target: { value: "my-app" } });
+    expect(setRepo).toHaveBeenCalledWith("my-app");
+  });
+
+  it("calls setNumber when the issue number input changes (GITHUB provider)", () => {
+    // onChange={(e) => { setNumber(e.target.value); }}
+    const setNumber = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ provider: "GITHUB", setNumber }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("#"), { target: { value: "42" } });
+    expect(setNumber).toHaveBeenCalledWith("42");
+  });
+
+  it("calls setUrl when the URL input changes (LINK provider)", () => {
+    // onChange={(e) => { setUrl(e.target.value); }} — only rendered when provider === "LINK".
+    const setUrl = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ provider: "LINK", setUrl }));
+    render(<QueuePanel />);
+    fireEvent.change(screen.getByPlaceholderText("url"), { target: { value: "https://github.com/acme/app/issues/1" } });
+    expect(setUrl).toHaveBeenCalledWith("https://github.com/acme/app/issues/1");
+  });
 });
