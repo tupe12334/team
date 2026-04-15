@@ -120,6 +120,45 @@ describe("DaemonPanel – button label states", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Button disabled states: disabled={reloading} and disabled={shuttingDown}
+// ---------------------------------------------------------------------------
+
+describe("DaemonPanel – button disabled states", () => {
+  it("disables the Reload Config button when reloading is true", () => {
+    // The label tests (above) only assert text — they never check btn.disabled.
+    // This test exercises the `disabled={reloading}` prop when it is truthy.
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo(), reloading: true }));
+    const { container } = render(<DaemonPanel />);
+    const btn = container.querySelector<HTMLButtonElement>(".daemon-panel__reload-btn");
+    expect(btn?.disabled).toBe(true);
+  });
+
+  it("enables the Reload Config button when reloading is false", () => {
+    // Exercises the falsy arm of `disabled={reloading}`.
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo(), reloading: false }));
+    const { container } = render(<DaemonPanel />);
+    const btn = container.querySelector<HTMLButtonElement>(".daemon-panel__reload-btn");
+    expect(btn?.disabled).toBe(false);
+  });
+
+  it("disables the Shutdown button when shuttingDown is true", () => {
+    // Exercises the `disabled={shuttingDown}` prop when truthy.
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo(), shuttingDown: true }));
+    const { container } = render(<DaemonPanel />);
+    const btn = container.querySelector<HTMLButtonElement>(".daemon-panel__shutdown-btn");
+    expect(btn?.disabled).toBe(true);
+  });
+
+  it("enables the Shutdown button when shuttingDown is false", () => {
+    // Exercises the falsy arm of `disabled={shuttingDown}`.
+    mockHook.mockReturnValue(makePanelState({ info: makeInfo(), shuttingDown: false }));
+    const { container } = render(<DaemonPanel />);
+    const btn = container.querySelector<HTMLButtonElement>(".daemon-panel__shutdown-btn");
+    expect(btn?.disabled).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Conditional rendering: loading / error / info sections
 // ---------------------------------------------------------------------------
 
