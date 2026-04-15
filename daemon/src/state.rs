@@ -670,4 +670,38 @@ mod tests {
         assert_eq!(state.queue[1].status, TaskStatus::Completed as i32, "completed task must remain completed");
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    /// Exercises the `!terminal { return true }` early-return arm of `save_queue`'s filter.
+    /// Every other `save_queue` test puts only terminal (Completed/Failed) tasks in the queue,
+    /// so the non-terminal path is never reached in those tests.
+    ///
+    /// This test places a QUEUED task alongside a stale Completed task and verifies:
+    ///   1. The Completed task is pruned from both the JSON file and in-memory queue.
+    ///   2. The Queued task passes through the `!terminal { return true }` arm and is
+    ///      preserved in both the JSON file and in-memory queue.
+    #[test]
+    fn save_queue_preserves_non_terminal_tasks_and_prunes_stale_completed() {
+        let path = format!("/tmp/state-save-queue-non-terminal-{}.json", uuid::Uuid::new_v4());
+        let old_ts = now_secs() - 8 * 24 * 3600; // 8 days ago — prune-eligible
+        let queued_task = make_task(TaskStatus::Queued, Some(now_secs())); // non-terminal: always kept
+        let stale_task = make_task(TaskStatus::Completed, Some(old_ts));  // terminal + stale: pruned
+        let queued_id = queued_task.id.clone();
+        let mut state = AppState {
+            config_path: "/tmp/save-queue-non-terminal-test.toml".into(),
+            queue_path: path.clone(),
+            queue: vec![queued_task, stale_task],
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 1, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        assert_eq!(state.queue.len(), 2, "setup: both tasks must be present");
+        state.save_queue().expect("save_queue must succeed");
+        // The stale Completed task is pruned; the Queued task survives.
+        assert_eq!(state.queue.len(), 1, "stale completed task must be pruned");
+        assert_eq!(state.queue[0].id, queued_id, "queued task must survive (!terminal early-return arm)");
+        assert_eq!(state.queue[0].status, TaskStatus::Queued as i32);
+        // Verify the JSON file also only contains the queued task.
+        let contents = std::fs::read_to_string(&path).expect("queue file must exist");
+        assert!(contents.contains(&queued_id), "queued task id must appear in the JSON output");
+        let _ = std::fs::remove_file(&path);
+    }
 }
