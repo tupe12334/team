@@ -14,15 +14,19 @@ import (
 	"github.com/tupe12334/team/cli/gen/genmcp"
 )
 
-func main() {
-	addr := os.Getenv("DAEMON_ADDR")
-	if addr == "" {
-		port := os.Getenv("DAEMON_PORT")
-		if port == "" {
-			port = "50051"
-		}
-		addr = fmt.Sprintf("[::1]:%s", port)
+func daemonAddr() string {
+	if addr := os.Getenv("DAEMON_ADDR"); addr != "" {
+		return addr
 	}
+	port := os.Getenv("DAEMON_PORT")
+	if port == "" {
+		port = "50051"
+	}
+	return fmt.Sprintf("[::1]:%s", port)
+}
+
+func main() {
+	addr := daemonAddr()
 
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

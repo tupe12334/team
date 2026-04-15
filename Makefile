@@ -45,6 +45,7 @@ test: generate ## Run all tests (TypeScript typecheck + client Vitest + Rust uni
 	cd daemon && cargo test
 	cd tui && cargo test
 	cd cli && GOWORK=off go test ./...
+	cd mcp && go test ./...
 
 .PHONY: lint
 lint: generate ## Run all linters (Go vet, Rust clippy, Next.js ESLint)
