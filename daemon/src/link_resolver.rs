@@ -348,4 +348,16 @@ mod tests {
     async fn centy_url_with_only_org_segment_returns_err() {
         assert!(resolve("https://app.centy.io/acme").await.is_err());
     }
+
+    /// Double slash after the Centy host produces an empty org segment:
+    /// parts.next() yields Some("") which the non-empty filter drops to None →
+    /// the org guard fires `return Ok(None)` → resolve() returns Err.
+    ///
+    /// This is the Centy-side analogue of github_url_with_empty_org_returns_err.
+    /// All other centy_url_with_* tests trip a later guard (project or kind),
+    /// so the first org guard has no coverage without this test.
+    #[tokio::test]
+    async fn centy_url_with_empty_org_segment_returns_err() {
+        assert!(resolve("https://app.centy.io//proj/issues/5").await.is_err());
+    }
 }
