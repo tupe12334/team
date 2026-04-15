@@ -360,4 +360,17 @@ mod tests {
     async fn centy_url_with_empty_org_segment_returns_err() {
         assert!(resolve("https://app.centy.io//proj/issues/5").await.is_err());
     }
+
+    /// Double slash between org and issues produces an empty project segment:
+    /// `parts.next()` yields `Some("")`, the `.filter(|s| !s.is_empty())` predicate
+    /// drops it to `None`, and the `let Some(project)` guard fires `return Ok(None)` → Err.
+    ///
+    /// `centy_url_with_only_org_segment_returns_err` uses only one segment so the
+    /// iterator is exhausted (`None` from `.next()`); this test hits the distinct
+    /// sub-path where the iterator yields a value but the filter rejects it — the
+    /// same guard, a different reason for the `None`.
+    #[tokio::test]
+    async fn centy_url_with_empty_project_segment_returns_err() {
+        assert!(resolve("https://app.centy.io/acme//issues/5").await.is_err());
+    }
 }
