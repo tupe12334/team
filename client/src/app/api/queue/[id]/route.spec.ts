@@ -134,4 +134,17 @@ describe("DELETE /api/queue/[id]", () => {
     const body = await res.json() as { error: string };
     expect(body.error).toBe("remove service unavailable");
   });
+
+  it("returns 400 when daemon returns an application-level error (ApiError)", async () => {
+    // Exercises the `err instanceof ApiError ? 400` branch in the DELETE catch block.
+    // PATCH has this test but DELETE did not — the ApiError arm was dead code in tests.
+    // In production this fires when queueRemoveTask rejects with a domain-level error
+    // rather than a transport/gRPC status error (e.g. a future business-rule rejection).
+    mockRemove.mockRejectedValueOnce(new ApiError("cannot remove a protected task"));
+    const req = new Request("http://localhost/api/queue/t1", { method: "DELETE" });
+    const res = await DELETE(req as never, makeParams("t1"));
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toBe("cannot remove a protected task");
+  });
 });
