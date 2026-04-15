@@ -241,3 +241,32 @@ describe("ConfigPanel – enabledAgents input interaction", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Log level select: LOG_LEVELS.map rendering and onChange handler
+// ---------------------------------------------------------------------------
+
+describe("ConfigPanel – log level select", () => {
+  it("renders all five log level options from the LOG_LEVELS constant", () => {
+    // LOG_LEVELS.map((level) => <option key={level} value={level}>{level}</option>)
+    // All five options must appear in the select; this exercises the map body for every entry.
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft() }));
+    const { container } = render(<ConfigPanel />);
+    const select = container.querySelector<HTMLSelectElement>(".config-panel__select");
+    for (const level of ["error", "warn", "info", "debug", "trace"]) {
+      expect(select?.querySelector(`option[value="${level}"]`)).toBeTruthy();
+    }
+  });
+
+  it("calls setDraft with the selected log level when the log level select changes", () => {
+    // `onChange={(e) => { setDraft({ ...draft, logLevel: e.target.value }); }}`
+    // This interaction was not covered by any other test — only workersCount and
+    // enabledAgents onChange handlers had coverage.
+    const setDraft = vi.fn();
+    mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ logLevel: "info" }), setDraft }));
+    const { container } = render(<ConfigPanel />);
+    const select = container.querySelector<HTMLSelectElement>(".config-panel__select");
+    fireEvent.change(select!, { target: { value: "debug" } });
+    expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ logLevel: "debug" }));
+  });
+});
