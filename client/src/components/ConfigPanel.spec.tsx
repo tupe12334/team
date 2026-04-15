@@ -262,11 +262,11 @@ describe("ConfigPanel – log level select", () => {
     // `onChange={(e) => { setDraft({ ...draft, logLevel: e.target.value }); }}`
     // This interaction was not covered by any other test — only workersCount and
     // enabledAgents onChange handlers had coverage.
+    // getByRole("combobox") is non-nullable (throws if absent), so no ! assertion needed.
     const setDraft = vi.fn();
     mockHook.mockReturnValue(makePanelState({ draft: makeDraft({ logLevel: "info" }), setDraft }));
-    const { container } = render(<ConfigPanel />);
-    const select = container.querySelector<HTMLSelectElement>(".config-panel__select");
-    fireEvent.change(select!, { target: { value: "debug" } });
+    render(<ConfigPanel />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "debug" } });
     expect(setDraft).toHaveBeenCalledWith(expect.objectContaining({ logLevel: "debug" }));
   });
 });
