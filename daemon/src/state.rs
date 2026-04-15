@@ -354,6 +354,25 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// save_config must return Err when create_dir_all fails for the parent directory.
+    /// The happy-path test (config_save_and_reload_round_trip) never triggers line 125
+    /// because /tmp already exists.  Using "/dev/null/config.toml" as the config path
+    /// makes parent = "/dev/null" — a character device, not a directory — so
+    /// create_dir_all fails (cannot create a directory where a special file exists),
+    /// and the `?` at line 125 propagates the error back to the caller.
+    #[test]
+    fn save_config_returns_error_when_parent_dir_creation_fails() {
+        let state = AppState {
+            config_path: "/dev/null/config.toml".into(),
+            queue_path: "/tmp/save-config-err-test.json".into(),
+            queue: Vec::new(),
+            workers: Vec::new(),
+            config: DaemonConfig { workers_count: 4, log_level: "info".into(), enabled_agents: vec![] },
+        };
+        let result = state.save_config();
+        assert!(result.is_err(), "save_config must return Err when create_dir_all fails for the parent");
+    }
+
     #[test]
     fn config_reload_falls_back_to_defaults_when_file_missing() {
         let path = "/tmp/nonexistent-config-state-test.toml".to_string();
