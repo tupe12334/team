@@ -516,4 +516,54 @@ mod tests {
         terminal.draw(|f| render(f, &app)).unwrap();
         assert!(buffer_has(&terminal, "idle"), "invalid worker status must fall back to Idle and render 'idle'");
     }
+
+    #[tokio::test]
+    async fn render_queue_non_selected_row_uses_default_style() {
+        // All existing queue tests use exactly 1 task so i==0==selected_task — the `else` branch is never reached.
+        // With 2 tasks and selected_task=0, the row at index 1 takes the `else { Style::default() }` arm.
+        let mut app = make_app().await;
+        app.tasks = vec![
+            Task { id: "sel-task-111".into(), status: TaskStatus::Queued as i32, ..Default::default() },
+            Task { id: "oth-task-222".into(), status: TaskStatus::Queued as i32, ..Default::default() },
+        ];
+        app.selected_task = 0;
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "sel-task"), "selected task must render");
+        assert!(buffer_has(&terminal, "oth-task"), "non-selected task must also render (exercises else branch)");
+    }
+
+    #[tokio::test]
+    async fn render_workers_non_selected_worker_uses_default_style() {
+        // All existing worker tests use exactly 1 worker so i==0==selected_task — the `else` branch is never reached.
+        // With 2 workers and selected_task=0, the worker at index 1 takes the `else { Style::default() }` arm.
+        let mut app = make_app().await;
+        app.active_tab = Tab::Workers;
+        app.worker_status = Some(WorkerStatusData {
+            total: 2,
+            busy: 1,
+            idle: 1,
+            workers: vec![
+                WorkerInfo {
+                    worker_id: "sel-worker-1".into(),
+                    status: WorkerStatus::Busy as i32,
+                    current_task_id: "t1".into(),
+                    current_agent: "review".into(),
+                    ..Default::default()
+                },
+                WorkerInfo {
+                    worker_id: "oth-worker-2".into(),
+                    status: WorkerStatus::Idle as i32,
+                    current_task_id: "".into(),
+                    current_agent: "".into(),
+                    ..Default::default()
+                },
+            ],
+        });
+        app.selected_task = 0;
+        let mut terminal = make_terminal();
+        terminal.draw(|f| render(f, &app)).unwrap();
+        assert!(buffer_has(&terminal, "sel-work"), "selected worker must render");
+        assert!(buffer_has(&terminal, "oth-work"), "non-selected worker must render (exercises else branch)");
+    }
 }
