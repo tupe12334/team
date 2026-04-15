@@ -437,6 +437,32 @@ mod tests {
         assert_eq!(app.selected_task, 5, "selection must not be changed when active_len is zero");
     }
 
+    /// select_next with exactly one task: (0 + 1) % 1 = 0 — the selection must stay at 0.
+    /// Existing tests cover len=0 (guard false, no-op) and len=2 (position changes).
+    /// len=1 is the boundary between the two: the guard fires (len > 0) but the modulo
+    /// arithmetic produces the same index — explicitly asserting this prevents a future
+    /// off-by-one regression (e.g. accidentally using `% (len - 1)` or `% (len + 1)`).
+    #[tokio::test]
+    async fn select_next_single_item_noop_in_queue_tab() {
+        let mut app = make_app().await;
+        app.tasks = vec![crate::client::Task { id: "only".into(), ..Default::default() }];
+        app.selected_task = 0;
+        app.select_next();
+        assert_eq!(app.selected_task, 0, "select_next with a single-item list must keep selection at 0");
+    }
+
+    /// select_prev with exactly one task: (0 + 1 - 1) % 1 = 0 % 1 = 0 — same invariant.
+    /// This is the symmetric case for select_prev; tests len=1 where neither the guard
+    /// (len > 0 is true) nor the arithmetic (0 % 1 = 0) changes the index.
+    #[tokio::test]
+    async fn select_prev_single_item_noop_in_queue_tab() {
+        let mut app = make_app().await;
+        app.tasks = vec![crate::client::Task { id: "only".into(), ..Default::default() }];
+        app.selected_task = 0;
+        app.select_prev();
+        assert_eq!(app.selected_task, 0, "select_prev with a single-item list must keep selection at 0");
+    }
+
     /// refresh() computes active_len via a match on active_tab.  All existing refresh tests
     /// use the default Tab::Queue arm; this test exercises the Tab::Daemon arm specifically
     /// (Tab::Daemon => 0), verifying that high selection indices are not clamped when
