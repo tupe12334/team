@@ -577,6 +577,26 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// poll_once calls fetch_in_queue_issues (which spawns centy) and then
+    /// enqueue_new_issues.  No existing test exercises poll_once at all — neither
+    /// the Err arm (centy not installed → eprintln + return) nor the Ok arm
+    /// (centy installed → delegate to enqueue_new_issues) have any coverage.
+    /// This test verifies that poll_once completes without panicking and leaves
+    /// the in-memory queue in a consistent, lockable state regardless of whether
+    /// centy is available in the test environment.
+    #[tokio::test]
+    async fn poll_once_does_not_panic_and_leaves_queue_coherent() {
+        let path = format!("/tmp/poll-once-test-{}.json", uuid::Uuid::new_v4());
+        let state = make_state_with_path(&path);
+        let before = state.lock().await.queue.len();
+        poll_once(&state).await; // must not panic
+        // - centy unavailable: Err arm taken → queue untouched (before == 0 == after)
+        // - centy available: Ok arm taken → issues may be enqueued (after >= before)
+        let after = state.lock().await.queue.len();
+        assert!(after >= before, "poll_once must not shrink the queue");
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// When multiple new issues are enqueued but save_queue then fails, truncate must
     /// remove ALL newly-pushed tasks — not just one.  The existing rollback test only
     /// adds a single task; this test adds two to verify the truncate(before_len) removes
