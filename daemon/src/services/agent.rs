@@ -97,4 +97,20 @@ mod tests {
         };
         assert!(agents.iter().all(|a| !a.description.is_empty()));
     }
+
+    /// When enabled_agents contains only unknown names the filter returns nothing.
+    /// The service must return Ok(AgentList { agents: [] }), not an error.
+    /// This exercises the non-empty-enabled-list branch of gstack_agents::filter through
+    /// the full service layer and confirms the empty iterator map+collect is handled correctly.
+    #[tokio::test]
+    async fn returns_empty_list_when_all_enabled_agents_are_unknown() {
+        let enabled = vec!["nonexistent-agent".to_string(), "also-unknown".to_string()];
+        let svc = AgentServiceImpl::new(make_state(enabled));
+        let res = svc.get_available_agents(Request::new(())).await.unwrap().into_inner();
+        let agents = match res.result.unwrap() {
+            get_available_agents_response::Result::Ok(list) => list.agents,
+            get_available_agents_response::Result::Error(e) => panic!("unexpected error: {e}"),
+        };
+        assert!(agents.is_empty(), "all-unknown enabled list must yield an empty agent list, not an error");
+    }
 }
