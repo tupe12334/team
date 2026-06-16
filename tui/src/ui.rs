@@ -370,8 +370,8 @@ mod tests {
             workers: vec![WorkerInfo {
                 worker_id: "w-idle".into(),
                 status: WorkerStatus::Idle as i32,
-                current_task_id: "".into(),
-                current_agent: "".into(),
+                current_task_id: String::new(),
+                current_agent: String::new(),
                 ..Default::default()
             }],
         });
@@ -606,8 +606,8 @@ mod tests {
                 WorkerInfo {
                     worker_id: "oth-worker-2".into(),
                     status: WorkerStatus::Idle as i32,
-                    current_task_id: "".into(),
-                    current_agent: "".into(),
+                    current_task_id: String::new(),
+                    current_agent: String::new(),
                     ..Default::default()
                 },
             ],
