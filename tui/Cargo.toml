@@ -22,3 +22,8 @@ tonic-build = "0.13"
 all = "deny"
 manual_string_new = "deny"
 unchecked_time_subtraction = "deny"
+# This crate renders through ratatui, which holds the terminal in raw mode on the
+# alternate screen. Any stray `print!`/`println!` writes to stdout underneath the
+# rendered UI, corrupting the display. Deny direct stdout printing so all output
+# goes through the ratatui frame instead.
+print_stdout = "deny"
