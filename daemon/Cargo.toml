@@ -21,3 +21,4 @@ tonic-build = "0.13"
 
 [lints.clippy]
 all = "deny"
+uninlined_format_args = "deny"

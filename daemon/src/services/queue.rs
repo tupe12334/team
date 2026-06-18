@@ -363,7 +363,7 @@ mod tests {
                         assert_eq!(g.repository, "app");
                         assert_eq!(g.number, "99");
                     }
-                    other => panic!("expected Github ref from link resolver, got {:?}", other),
+                    other => panic!("expected Github ref from link resolver, got {other:?}"),
                 }
             }
             enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
@@ -387,7 +387,7 @@ mod tests {
                         assert_eq!(c.repository, "proj");
                         assert_eq!(c.number, "5");
                     }
-                    other => panic!("expected Centy ref from link resolver, got {:?}", other),
+                    other => panic!("expected Centy ref from link resolver, got {other:?}"),
                 }
             }
             enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
@@ -420,7 +420,7 @@ mod tests {
                         assert_eq!(c.repository, "proj");
                         assert_eq!(c.number, "7");
                     }
-                    other => panic!("expected Centy ref, got {:?}", other),
+                    other => panic!("expected Centy ref, got {other:?}"),
                 }
             }
             enqueue_response::Result::Error(e) => panic!("unexpected error: {e}"),
