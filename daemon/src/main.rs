@@ -1,5 +1,5 @@
-// Tests use `.unwrap()` liberally for brevity; only production code must avoid it.
-#![cfg_attr(test, allow(clippy::unwrap_used))]
+// Tests use `.unwrap()`/`.expect()` liberally for brevity; only production code must avoid them.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -44,7 +44,7 @@ fn resolve_config_path(env_config_path: Option<String>, home: &str) -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let port = std::env::var("DAEMON_PORT").expect("DAEMON_PORT must be set");
+    let port = std::env::var("DAEMON_PORT").map_err(|_| "DAEMON_PORT must be set")?;
     let addr = resolve_bind_addr(std::env::var("DAEMON_HOST").ok(), &port).parse()?;
 
     let pid_path = format!("/tmp/team-daemon-{port}.pid");
@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     std::fs::write(&pid_path, std::process::id().to_string())?;
 
-    let home = std::env::var("HOME").expect("HOME must be set");
+    let home = std::env::var("HOME").map_err(|_| "HOME must be set")?;
     let config_path = resolve_config_path(std::env::var("CONFIG_PATH").ok(), &home);
     let shared_state = Arc::new(Mutex::new(AppState::new(config_path)));
 
