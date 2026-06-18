@@ -33,7 +33,7 @@ impl QueueService for QueueServiceImpl {
         let now = prost_types::Timestamp {
             seconds: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_default()
                 .as_secs() as i64,
             nanos: 0,
         };
@@ -201,7 +201,7 @@ impl QueueService for QueueServiceImpl {
         task.updated_at = Some(prost_types::Timestamp {
             seconds: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_default()
                 .as_secs() as i64,
             nanos: 0,
         });
