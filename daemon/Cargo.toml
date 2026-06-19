@@ -47,3 +47,8 @@ manual_let_else = "deny"
 # the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
 # allocation-free and the intent direct.
 needless_collect = "deny"
+# Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
+# form is a single call that states "map, or this default" in one place, instead
+# of building an intermediate `Option` only to immediately unwrap it. Shorter,
+# clearer intent, and avoids the easy-to-misread two-step chain.
+map_unwrap_or = "deny"
