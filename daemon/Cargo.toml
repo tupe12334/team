@@ -47,3 +47,9 @@ manual_let_else = "deny"
 # the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
 # allocation-free and the intent direct.
 needless_collect = "deny"
+# Prefer `String::new()` over manual empty-string construction like `"".into()`
+# or `"".to_string()`. `String::new()` states intent directly, does not go
+# through a `&str -> String` conversion, and is the canonical way to build an
+# empty `String`. Mirrors the same rule already enforced in the `tui` crate,
+# keeping empty-string construction consistent across both Rust crates.
+manual_string_new = "deny"
