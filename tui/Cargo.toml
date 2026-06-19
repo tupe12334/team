@@ -22,3 +22,7 @@ tonic-build = "0.13"
 all = "deny"
 manual_string_new = "deny"
 unchecked_time_subtraction = "deny"
+# Require the `Self` keyword instead of repeating the enclosing type name
+# inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
+# needs no edits to `Self`-based references, and the intent reads clearer.
+use_self = "deny"
