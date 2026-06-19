@@ -15,13 +15,13 @@ pub enum Tab {
 }
 
 impl Tab {
-    pub const ALL: [Tab; 3] = [Tab::Queue, Tab::Workers, Tab::Daemon];
+    pub const ALL: [Self; 3] = [Self::Queue, Self::Workers, Self::Daemon];
 
     pub fn title(self) -> &'static str {
         match self {
-            Tab::Queue => "Queue",
-            Tab::Workers => "Workers",
-            Tab::Daemon => "Daemon",
+            Self::Queue => "Queue",
+            Self::Workers => "Workers",
+            Self::Daemon => "Daemon",
         }
     }
 }
