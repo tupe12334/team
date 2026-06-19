@@ -134,9 +134,8 @@ async fn fetch_in_queue_issues() -> Result<Vec<CentyIssue>, String> {
 /// spawning a real centy process.
 fn parse_fetch_stdout(stdout: &str) -> Result<Vec<CentyIssue>, String> {
     // centy sometimes prints warnings to stdout before the JSON array.
-    let json_start = match stdout.find('[') {
-        Some(pos) => pos,
-        None => return Ok(Vec::new()),
+    let Some(json_start) = stdout.find('[') else {
+        return Ok(Vec::new());
     };
 
     let items: Vec<serde_json::Value> =
