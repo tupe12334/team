@@ -32,3 +32,8 @@ print_stdout = "deny"
 # inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
 # needs no edits to `Self`-based references, and the intent reads clearer.
 use_self = "deny"
+# Prefer `Option<&T>` over `&Option<T>` in function signatures. `&Option<T>`
+# forces every caller to own an `Option`, whereas `Option<&T>` accepts a borrow
+# of either the value or the option, so callers can pass `opt.as_ref()` without
+# owning the data. The more idiomatic and flexible API shape.
+ref_option = "deny"
