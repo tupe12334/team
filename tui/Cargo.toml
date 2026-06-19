@@ -21,9 +21,14 @@ tonic-build = "0.13"
 [lints.clippy]
 all = "deny"
 manual_string_new = "deny"
+uninlined_format_args = "deny"
 unchecked_time_subtraction = "deny"
 # This crate renders through ratatui, which holds the terminal in raw mode on the
 # alternate screen. Any stray `print!`/`println!` writes to stdout underneath the
 # rendered UI, corrupting the display. Deny direct stdout printing so all output
 # goes through the ratatui frame instead.
 print_stdout = "deny"
+# Require the `Self` keyword instead of repeating the enclosing type name
+# inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
+# needs no edits to `Self`-based references, and the intent reads clearer.
+use_self = "deny"

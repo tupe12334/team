@@ -180,7 +180,7 @@ async fn execute_agent(issue_ref: Option<IssueRef>, agent: Option<String>) -> bo
             status.success()
         }
         Err(e) => {
-            eprintln!("[worker_pool] failed to spawn `worktree open {}`: {e}", ref_str);
+            eprintln!("[worker_pool] failed to spawn `worktree open {ref_str}`: {e}");
             false
         }
     }

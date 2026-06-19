@@ -21,7 +21,18 @@ tonic-build = "0.13"
 
 [lints.clippy]
 all = "deny"
+uninlined_format_args = "deny"
 # Forbid `.unwrap()` in production code: a panicking unwrap in a long-running
 # daemon takes the whole service down. Use explicit error handling instead.
 # (Tests are exempted via cfg(test) in main.rs.)
 unwrap_used = "deny"
+# Forbid `.expect()` in production code for the same reason as `unwrap_used`:
+# an `.expect()` on `None`/`Err` panics and tears down the long-running daemon.
+# Prefer propagating errors with `?` or explicit handling instead.
+# (Tests are exempted via cfg(test) in main.rs.)
+expect_used = "deny"
+# Prefer `let ... else { ... }` over a `match`/`if let` whose sole job is to
+# bind a value or diverge (return/continue/break). The let-else form keeps the
+# happy path un-indented and makes the early-exit branch explicit, which reads
+# clearer in the daemon's many `find('{')`/`strip_prefix` parsing guards.
+manual_let_else = "deny"
