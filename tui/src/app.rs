@@ -57,7 +57,9 @@ impl App {
             daemon_info: None,
             error: None,
             selected_task: 0,
-            last_refresh: Instant::now() - Duration::from_secs(10),
+            last_refresh: Instant::now()
+                .checked_sub(Duration::from_secs(10))
+                .unwrap_or_else(Instant::now),
         })
     }
 
@@ -91,8 +93,9 @@ impl App {
                     KeyCode::Char('j') | KeyCode::Down => self.select_next(),
                     KeyCode::Char('k') | KeyCode::Up => self.select_prev(),
                     KeyCode::Char('r') => {
-                        self.last_refresh =
-                            Instant::now() - Duration::from_secs(10);
+                        self.last_refresh = Instant::now()
+                            .checked_sub(Duration::from_secs(10))
+                            .unwrap_or_else(Instant::now);
                     }
                     _ => {}
                 }

@@ -1,3 +1,6 @@
+// Tests use `.unwrap()` liberally for brevity; only production code must avoid it.
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tonic::transport::Server;
