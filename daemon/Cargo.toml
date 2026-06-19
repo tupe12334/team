@@ -40,3 +40,8 @@ redundant_clone = "deny"
 # needs no edits to `Self`-based references, and the intent reads clearer.
 # Mirrors the same rule already enforced in the `tui` crate.
 use_self = "deny"
+# Prefer `let ... else { ... }` over a `match`/`if let` whose sole job is to
+# bind a value or diverge (return/continue/break). The let-else form keeps the
+# happy path un-indented and makes the early-exit branch explicit, which reads
+# clearer in the daemon's many `find('{')`/`strip_prefix` parsing guards.
+manual_let_else = "deny"

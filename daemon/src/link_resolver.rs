@@ -65,12 +65,11 @@ fn try_jira(url: &str) -> Option<IssueRef> {
 /// When a UUID is detected the centy CLI is queried to obtain the integer
 /// display number that `worktree open centy:<n>` requires.
 async fn try_centy(url: &str) -> Result<Option<IssueRef>, String> {
-    let path = match url
+    let Some(path) = url
         .strip_prefix("https://app.centy.io/")
         .or_else(|| url.strip_prefix("http://app.centy.io/"))
-    {
-        Some(p) => p,
-        None => return Ok(None),
+    else {
+        return Ok(None);
     };
     let mut parts = path.splitn(5, '/');
     let Some(org) = parts.next().filter(|s| !s.is_empty()) else {
