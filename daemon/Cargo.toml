@@ -36,3 +36,9 @@ expect_used = "deny"
 # happy path un-indented and makes the early-exit branch explicit, which reads
 # clearer in the daemon's many `find('{')`/`strip_prefix` parsing guards.
 manual_let_else = "deny"
+# Forbid `.collect()`ing an iterator into a temporary collection only to
+# immediately consume it again (e.g. `.contains()`, `.len()`, another adaptor).
+# The intermediate allocation is pure overhead — the same check runs lazily on
+# the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
+# allocation-free and the intent direct.
+needless_collect = "deny"

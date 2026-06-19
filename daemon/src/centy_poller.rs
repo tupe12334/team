@@ -577,11 +577,11 @@ mod tests {
         let s = state.lock().await;
         // Only issue #2 was new; queue must have exactly 3 tasks (2 existing + 1 new).
         assert_eq!(s.queue.len(), 3, "only new issues must be added; existing ones must be skipped");
-        let numbers: Vec<&str> = s.queue.iter()
+        let has_issue_2 = s.queue.iter()
             .filter_map(|t| t.issue_ref.as_ref()?.r#ref.as_ref())
             .filter_map(|r| if let issue_ref::Ref::Centy(c) = r { Some(c.number.as_str()) } else { None })
-            .collect();
-        assert!(numbers.contains(&"2"), "new issue #2 must be enqueued");
+            .any(|n| n == "2");
+        assert!(has_issue_2, "new issue #2 must be enqueued");
         let _ = std::fs::remove_file(&path);
     }
 
