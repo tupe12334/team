@@ -25,3 +25,8 @@ all = "deny"
 # daemon takes the whole service down. Use explicit error handling instead.
 # (Tests are exempted via cfg(test) in main.rs.)
 unwrap_used = "deny"
+# Forbid `.expect()` in production code for the same reason as `unwrap_used`:
+# an `.expect()` on `None`/`Err` panics and tears down the long-running daemon.
+# Prefer propagating errors with `?` or explicit handling instead.
+# (Tests are exempted via cfg(test) in main.rs.)
+expect_used = "deny"
