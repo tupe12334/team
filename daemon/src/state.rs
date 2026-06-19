@@ -22,7 +22,7 @@ impl Default for ConfigFile {
 
 impl From<ConfigFile> for DaemonConfig {
     fn from(f: ConfigFile) -> Self {
-        DaemonConfig {
+        Self {
             workers_count: f.workers_count,
             log_level: f.log_level,
             enabled_agents: f.enabled_agents,
@@ -32,7 +32,7 @@ impl From<ConfigFile> for DaemonConfig {
 
 impl From<&DaemonConfig> for ConfigFile {
     fn from(c: &DaemonConfig) -> Self {
-        ConfigFile {
+        Self {
             workers_count: c.workers_count,
             log_level: c.log_level.clone(),
             enabled_agents: c.enabled_agents.clone(),
@@ -55,7 +55,7 @@ struct TaskJson {
 
 impl From<Task> for TaskJson {
     fn from(t: Task) -> Self {
-        TaskJson {
+        Self {
             id: t.id,
             issue_ref: t.issue_ref.map(IssueRefJson::from),
             agent: t.agent,
@@ -69,7 +69,7 @@ impl From<Task> for TaskJson {
 
 impl From<TaskJson> for Task {
     fn from(j: TaskJson) -> Self {
-        Task {
+        Self {
             id: j.id,
             issue_ref: j.issue_ref.and_then(issue_ref_json_to_proto),
             agent: j.agent,

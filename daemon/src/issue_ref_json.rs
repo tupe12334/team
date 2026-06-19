@@ -23,14 +23,14 @@ pub(crate) enum IssueRefJson {
 impl std::fmt::Display for IssueRefJson {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IssueRefJson::Github { organization, repository, number } => {
+            Self::Github { organization, repository, number } => {
                 write!(f, "github:{organization}/{repository}#{number}")
             }
-            IssueRefJson::Centy { organization, repository, number } => {
+            Self::Centy { organization, repository, number } => {
                 write!(f, "centy:{organization}/{repository}#{number}")
             }
-            IssueRefJson::Jira { id } => write!(f, "jira:{id}"),
-            IssueRefJson::Link { url } => write!(f, "link:{url}"),
+            Self::Jira { id } => write!(f, "jira:{id}"),
+            Self::Link { url } => write!(f, "link:{url}"),
         }
     }
 }
@@ -40,7 +40,7 @@ impl IssueRefJson {
         if let Some(rest) = s.strip_prefix("github:") {
             let (repo_path, number) = rest.split_once('#').ok_or("missing '#' in github ref")?;
             let (organization, repository) = repo_path.split_once('/').ok_or("missing '/' in github ref")?;
-            return Ok(IssueRefJson::Github {
+            return Ok(Self::Github {
                 organization: organization.to_string(),
                 repository: repository.to_string(),
                 number: number.to_string(),
@@ -49,17 +49,17 @@ impl IssueRefJson {
         if let Some(rest) = s.strip_prefix("centy:") {
             let (repo_path, number) = rest.split_once('#').ok_or("missing '#' in centy ref")?;
             let (organization, repository) = repo_path.split_once('/').ok_or("missing '/' in centy ref")?;
-            return Ok(IssueRefJson::Centy {
+            return Ok(Self::Centy {
                 organization: organization.to_string(),
                 repository: repository.to_string(),
                 number: number.to_string(),
             });
         }
         if let Some(id) = s.strip_prefix("jira:") {
-            return Ok(IssueRefJson::Jira { id: id.to_string() });
+            return Ok(Self::Jira { id: id.to_string() });
         }
         if let Some(url) = s.strip_prefix("link:") {
-            return Ok(IssueRefJson::Link { url: url.to_string() });
+            return Ok(Self::Link { url: url.to_string() });
         }
         Err(format!("unknown issue_ref format: {s}"))
     }
@@ -120,17 +120,17 @@ impl<'de> serde::Deserialize<'de> for IssueRefJson {
 impl From<IssueRef> for IssueRefJson {
     fn from(r: IssueRef) -> Self {
         match r.r#ref {
-            Some(issue_ref::Ref::Github(g)) => IssueRefJson::Github {
+            Some(issue_ref::Ref::Github(g)) => Self::Github {
                 organization: g.organization,
                 repository: g.repository,
                 number: g.number,
             },
-            Some(issue_ref::Ref::Centy(c)) => IssueRefJson::Centy {
+            Some(issue_ref::Ref::Centy(c)) => Self::Centy {
                 organization: c.organization,
                 repository: c.repository,
                 number: c.number,
             },
-            Some(issue_ref::Ref::Jira(j)) => IssueRefJson::Jira { id: j.id },
+            Some(issue_ref::Ref::Jira(j)) => Self::Jira { id: j.id },
             None => unreachable!("IssueRef always has a ref variant"),
         }
     }

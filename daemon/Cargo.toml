@@ -31,3 +31,8 @@ unwrap_used = "deny"
 # Prefer propagating errors with `?` or explicit handling instead.
 # (Tests are exempted via cfg(test) in main.rs.)
 expect_used = "deny"
+# Require the `Self` keyword instead of repeating the enclosing type name
+# inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
+# needs no edits to `Self`-based references, and the intent reads clearer.
+# Mirrors the same rule already enforced in the `tui` crate.
+use_self = "deny"
