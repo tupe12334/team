@@ -46,13 +46,10 @@ pub async fn resolve_centy_uuid(uuid: &str) -> Result<String, String> {
 /// This is a pure function extracted from `resolve_centy_uuid` so the JSON-parsing
 /// branches can be tested without spawning a real centy process.
 fn parse_centy_output(stdout: &str, stderr: &str, uuid: &str) -> Result<String, String> {
-    let json_start = match stdout.find('{') {
-        Some(pos) => pos,
-        None => {
-            return Err(format!(
-                "centy returned no JSON when resolving UUID {uuid}: {stderr}"
-            ));
-        }
+    let Some(json_start) = stdout.find('{') else {
+        return Err(format!(
+            "centy returned no JSON when resolving UUID {uuid}: {stderr}"
+        ));
     };
 
     let response: serde_json::Value = serde_json::from_str(&stdout[json_start..])
