@@ -27,3 +27,7 @@ unchecked_time_subtraction = "deny"
 # inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
 # needs no edits to `Self`-based references, and the intent reads clearer.
 use_self = "deny"
+# Flag `.clone()` calls whose result is dropped without further use: the clone
+# allocates a fresh copy only to throw it away, so the original can be moved
+# instead. Removing these saves needless allocations and reads more clearly.
+redundant_clone = "deny"
