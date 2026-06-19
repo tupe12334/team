@@ -21,6 +21,7 @@ tonic-build = "0.13"
 
 [lints.clippy]
 all = "deny"
+uninlined_format_args = "deny"
 # Forbid `.unwrap()` in production code: a panicking unwrap in a long-running
 # daemon takes the whole service down. Use explicit error handling instead.
 # (Tests are exempted via cfg(test) in main.rs.)

@@ -21,6 +21,7 @@ tonic-build = "0.13"
 [lints.clippy]
 all = "deny"
 manual_string_new = "deny"
+uninlined_format_args = "deny"
 unchecked_time_subtraction = "deny"
 # Require the `Self` keyword instead of repeating the enclosing type name
 # inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type

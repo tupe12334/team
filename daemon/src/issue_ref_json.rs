@@ -24,13 +24,13 @@ impl std::fmt::Display for IssueRefJson {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IssueRefJson::Github { organization, repository, number } => {
-                write!(f, "github:{}/{}#{}", organization, repository, number)
+                write!(f, "github:{organization}/{repository}#{number}")
             }
             IssueRefJson::Centy { organization, repository, number } => {
-                write!(f, "centy:{}/{}#{}", organization, repository, number)
+                write!(f, "centy:{organization}/{repository}#{number}")
             }
-            IssueRefJson::Jira { id } => write!(f, "jira:{}", id),
-            IssueRefJson::Link { url } => write!(f, "link:{}", url),
+            IssueRefJson::Jira { id } => write!(f, "jira:{id}"),
+            IssueRefJson::Link { url } => write!(f, "link:{url}"),
         }
     }
 }
@@ -61,7 +61,7 @@ impl IssueRefJson {
         if let Some(url) = s.strip_prefix("link:") {
             return Ok(IssueRefJson::Link { url: url.to_string() });
         }
-        Err(format!("unknown issue_ref format: {}", s))
+        Err(format!("unknown issue_ref format: {s}"))
     }
 }
 

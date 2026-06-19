@@ -267,7 +267,7 @@ mod tests {
         state.prune_old_tasks(7 * 24 * 3600);
         assert_eq!(state.queue.len(), 3);
         assert!(state.queue.iter().all(|t| t.status != TaskStatus::Completed as i32 || {
-            t.updated_at.as_ref().map_or(true, |ts| ts.seconds > now_secs() - 7 * 24 * 3600)
+            t.updated_at.as_ref().is_none_or(|ts| ts.seconds > now_secs() - 7 * 24 * 3600)
         }));
     }
 
