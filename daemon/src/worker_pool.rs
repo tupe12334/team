@@ -625,7 +625,7 @@ mod tests {
         // agent=Some("") → filter strips it → cmd.env("TEAM_AGENT", _) is skipped.
         let result = execute_agent(
             Some(github_ref("team-ci-nonexistent", "repo", "99999")),
-            Some("".into()),
+            Some(String::new()),
         ).await;
         assert!(!result, "execute_agent must return false when worktree is unavailable");
     }

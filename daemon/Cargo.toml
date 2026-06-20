@@ -54,3 +54,9 @@ needless_collect = "deny"
 # scanning past runtime statements to discover a declaration. Move such items
 # to the top of the scope.
 items_after_statements = "deny"
+# Prefer `String::new()` over manual empty-string construction like `"".into()`
+# or `"".to_string()`. `String::new()` states intent directly, does not go
+# through a `&str -> String` conversion, and is the canonical way to build an
+# empty `String`. Mirrors the same rule already enforced in the `tui` crate,
+# keeping empty-string construction consistent across both Rust crates.
+manual_string_new = "deny"

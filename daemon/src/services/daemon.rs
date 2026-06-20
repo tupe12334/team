@@ -412,7 +412,7 @@ mod tests {
             config: Some(DaemonConfig {
                 workers_count: 4,
                 log_level: "info".into(),
-                enabled_agents: vec!["".into()],
+                enabled_agents: vec![String::new()],
             }),
         });
         let res = svc.update_config(req).await.unwrap().into_inner();
