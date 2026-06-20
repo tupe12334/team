@@ -47,6 +47,12 @@ manual_let_else = "deny"
 # the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
 # allocation-free and the intent direct.
 needless_collect = "deny"
+# Prefer `.copied()` over `.cloned()` on iterators/Options of `Copy` types.
+# `.copied()` documents that the element is trivially copyable, whereas
+# `.cloned()` reads as a potentially expensive deep clone. If the type later
+# loses `Copy`, `.copied()` stops compiling and forces a conscious decision.
+# Mirrors the same rule enforced in the `tui` crate.
+cloned_instead_of_copied = "deny"
 # Prefer `String::new()` over manual empty-string construction like `"".into()`
 # or `"".to_string()`. `String::new()` states intent directly, does not go
 # through a `&str -> String` conversion, and is the canonical way to build an
