@@ -53,3 +53,8 @@ needless_collect = "deny"
 # empty `String`. Mirrors the same rule already enforced in the `tui` crate,
 # keeping empty-string construction consistent across both Rust crates.
 manual_string_new = "deny"
+# Prefer `for x in &collection` / `&mut collection` over the explicit
+# `for x in collection.iter()` / `.iter_mut()`. The borrow form is the
+# idiomatic Rust loop, drops the redundant adaptor call, and reads as
+# "iterate this" without the reader checking which iterator method was used.
+explicit_iter_loop = "deny"

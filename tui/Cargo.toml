@@ -37,3 +37,10 @@ use_self = "deny"
 # of either the value or the option, so callers can pass `opt.as_ref()` without
 # owning the data. The more idiomatic and flexible API shape.
 ref_option = "deny"
+# Prefer `for x in &collection` / `&mut collection` over the explicit
+# `for x in collection.iter()` / `.iter_mut()`. The borrow form is the
+# idiomatic Rust loop, drops the redundant adaptor call, and reads as
+# "iterate this" without the reader checking which iterator method was used.
+# Mirrors the same rule enforced in the `daemon` crate, keeping both Rust
+# crates consistent.
+explicit_iter_loop = "deny"
