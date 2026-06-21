@@ -803,13 +803,13 @@ mod tests {
 
         let req = Request::new(UpdateTaskRequest {
             task_id: task_id.clone(),
-            agent: Some("".into()),
+            agent: Some(String::new()),
             priority: None,
         });
         let res = svc.update_task(req).await.unwrap().into_inner();
         match res.result.unwrap() {
             update_task_response::Result::Task(t) => {
-                assert_eq!(t.agent, Some("".into()), "empty agent string must be stored as Some(\"\")");
+                assert_eq!(t.agent, Some(String::new()), "empty agent string must be stored as Some(\"\")");
             }
             update_task_response::Result::Error(e) => panic!("expected ok for empty agent, got: {e}"),
         }
@@ -834,13 +834,13 @@ mod tests {
         let task_id = enqueue_github(&svc, "77").await;
         let req = Request::new(UpdateTaskRequest {
             task_id: task_id.clone(),
-            agent: Some("".into()), // empty → !is_empty() = false → enabled_agents check skipped
+            agent: Some(String::new()), // empty → !is_empty() = false → enabled_agents check skipped
             priority: None,
         });
         let res = svc.update_task(req).await.unwrap().into_inner();
         match res.result.unwrap() {
             update_task_response::Result::Task(t) => {
-                assert_eq!(t.agent, Some("".into()), "empty agent must be stored even when enabled_agents is configured");
+                assert_eq!(t.agent, Some(String::new()), "empty agent must be stored even when enabled_agents is configured");
             }
             update_task_response::Result::Error(e) => {
                 panic!("empty agent must bypass enabled_agents check, got: {e}");
@@ -938,13 +938,13 @@ mod tests {
             issue_ref: Some(IssueRefInput { r#ref: Some(issue_ref_input::Ref::Github(GitHubIssueRef {
                 organization: "acme".into(), repository: "app".into(), number: "7".into(),
             })) }),
-            agent: Some("".into()), // empty string — !is_empty() = false → enabled_agents check skipped
+            agent: Some(String::new()), // empty string — !is_empty() = false → enabled_agents check skipped
             priority: None,
         });
         let res = svc.enqueue(req).await.unwrap().into_inner();
         match res.result.unwrap() {
             enqueue_response::Result::Task(t) => {
-                assert_eq!(t.agent, Some("".into()), "empty agent must be stored as-is");
+                assert_eq!(t.agent, Some(String::new()), "empty agent must be stored as-is");
                 assert_eq!(t.status, TaskStatus::Queued as i32, "task must be queued");
             }
             enqueue_response::Result::Error(e) => {
