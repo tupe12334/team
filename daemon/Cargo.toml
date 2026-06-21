@@ -47,6 +47,12 @@ manual_let_else = "deny"
 # the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
 # allocation-free and the intent direct.
 needless_collect = "deny"
+# Prefer `.copied()` over `.cloned()` on iterators/Options of `Copy` types.
+# `.copied()` documents that the element is trivially copyable, whereas
+# `.cloned()` reads as a potentially expensive deep clone. If the type later
+# loses `Copy`, `.copied()` stops compiling and forces a conscious decision.
+# Mirrors the same rule enforced in the `tui` crate.
+cloned_instead_of_copied = "deny"
 # Prefer `String::new()` over manual empty-string construction like `"".into()`
 # or `"".to_string()`. `String::new()` states intent directly, does not go
 # through a `&str -> String` conversion, and is the canonical way to build an
@@ -61,3 +67,9 @@ manual_string_new = "deny"
 # guards against an accidental implicit return if a function is later changed to
 # return a non-`()` value. Mirrors the same rule added to the `tui` crate.
 semicolon_if_nothing_returned = "deny"
+# Flag separate `match` arms that share an identical body so they can be merged
+# into one arm with an `|`-pattern. Collapsing the duplicate keeps the match DRY
+# and makes accidental divergence (editing one copy of the body but not the
+# other) impossible, since there is only ever one body to maintain.
+# Mirrors the same rule enforced in the `tui` crate.
+match_same_arms = "deny"
