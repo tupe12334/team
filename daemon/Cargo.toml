@@ -65,3 +65,13 @@ manual_string_new = "deny"
 # other) impossible, since there is only ever one body to maintain.
 # Mirrors the same rule enforced in the `tui` crate.
 match_same_arms = "deny"
+# Forbid glob-importing an enum's variants (`use SomeEnum::*`). A glob pulls an
+# unknown, version-dependent set of bare variant names into scope, so a reader can
+# no longer tell which enum a given variant belongs to, and adding a variant
+# upstream can silently shadow or collide with a local name. The daemon already
+# refers to its generated proto enums explicitly (e.g.
+# `reload_config_response::Result::Ok`); this lint locks that style in, keeping
+# each variant's provenance visible at the use site and the import surface
+# auditable. No current violations exist, so `deny` keeps the build green while
+# preventing future regressions. Mirrors the same rule enforced in the `tui` crate.
+enum_glob_use = "deny"
