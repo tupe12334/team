@@ -42,3 +42,13 @@ ref_option = "deny"
 # of building an intermediate `Option` only to immediately unwrap it. Shorter,
 # clearer intent, and avoids the easy-to-misread two-step chain.
 map_unwrap_or = "deny"
+# Prefer `.copied()` over `.cloned()` on iterators/Options of `Copy` types.
+# `.copied()` documents that the element is trivially copyable, whereas
+# `.cloned()` reads as a potentially expensive deep clone. If the type later
+# loses `Copy`, `.copied()` stops compiling and forces a conscious decision.
+cloned_instead_of_copied = "deny"
+# Flag separate `match` arms that share an identical body so they can be merged
+# into one arm with an `|`-pattern. Collapsing the duplicate keeps the match DRY
+# and makes accidental divergence (editing one copy of the body but not the
+# other) impossible, since there is only ever one body to maintain.
+match_same_arms = "deny"
