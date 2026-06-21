@@ -23,6 +23,11 @@ all = "deny"
 manual_string_new = "deny"
 uninlined_format_args = "deny"
 unchecked_time_subtraction = "deny"
+# This crate renders through ratatui, which holds the terminal in raw mode on the
+# alternate screen. Any stray `print!`/`println!` writes to stdout underneath the
+# rendered UI, corrupting the display. Deny direct stdout printing so all output
+# goes through the ratatui frame instead.
+print_stdout = "deny"
 # Require the `Self` keyword instead of repeating the enclosing type name
 # inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
 # needs no edits to `Self`-based references, and the intent reads clearer.
@@ -31,3 +36,18 @@ use_self = "deny"
 # allocates a fresh copy only to throw it away, so the original can be moved
 # instead. Removing these saves needless allocations and reads more clearly.
 redundant_clone = "deny"
+# Prefer `Option<&T>` over `&Option<T>` in function signatures. `&Option<T>`
+# forces every caller to own an `Option`, whereas `Option<&T>` accepts a borrow
+# of either the value or the option, so callers can pass `opt.as_ref()` without
+# owning the data. The more idiomatic and flexible API shape.
+ref_option = "deny"
+# Prefer `.copied()` over `.cloned()` on iterators/Options of `Copy` types.
+# `.copied()` documents that the element is trivially copyable, whereas
+# `.cloned()` reads as a potentially expensive deep clone. If the type later
+# loses `Copy`, `.copied()` stops compiling and forces a conscious decision.
+cloned_instead_of_copied = "deny"
+# Flag separate `match` arms that share an identical body so they can be merged
+# into one arm with an `|`-pattern. Collapsing the duplicate keeps the match DRY
+# and makes accidental divergence (editing one copy of the body but not the
+# other) impossible, since there is only ever one body to maintain.
+match_same_arms = "deny"

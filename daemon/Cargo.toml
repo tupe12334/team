@@ -45,3 +45,27 @@ use_self = "deny"
 # happy path un-indented and makes the early-exit branch explicit, which reads
 # clearer in the daemon's many `find('{')`/`strip_prefix` parsing guards.
 manual_let_else = "deny"
+# Forbid `.collect()`ing an iterator into a temporary collection only to
+# immediately consume it again (e.g. `.contains()`, `.len()`, another adaptor).
+# The intermediate allocation is pure overhead — the same check runs lazily on
+# the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
+# allocation-free and the intent direct.
+needless_collect = "deny"
+# Prefer `.copied()` over `.cloned()` on iterators/Options of `Copy` types.
+# `.copied()` documents that the element is trivially copyable, whereas
+# `.cloned()` reads as a potentially expensive deep clone. If the type later
+# loses `Copy`, `.copied()` stops compiling and forces a conscious decision.
+# Mirrors the same rule enforced in the `tui` crate.
+cloned_instead_of_copied = "deny"
+# Prefer `String::new()` over manual empty-string construction like `"".into()`
+# or `"".to_string()`. `String::new()` states intent directly, does not go
+# through a `&str -> String` conversion, and is the canonical way to build an
+# empty `String`. Mirrors the same rule already enforced in the `tui` crate,
+# keeping empty-string construction consistent across both Rust crates.
+manual_string_new = "deny"
+# Flag separate `match` arms that share an identical body so they can be merged
+# into one arm with an `|`-pattern. Collapsing the duplicate keeps the match DRY
+# and makes accidental divergence (editing one copy of the body but not the
+# other) impossible, since there is only ever one body to maintain.
+# Mirrors the same rule enforced in the `tui` crate.
+match_same_arms = "deny"

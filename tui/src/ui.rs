@@ -68,7 +68,7 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
                 TaskStatus::Failed => ("failed", Color::Red),
             };
 
-            let issue = format_issue_ref(&task.issue_ref);
+            let issue = format_issue_ref(task.issue_ref.as_ref());
             let short_id = task.id.chars().take(8).collect::<String>();
 
             let style = if i == app.selected_task {
@@ -245,7 +245,7 @@ fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(text), area);
 }
 
-fn format_issue_ref(issue_ref: &Option<crate::client::proto::IssueRef>) -> String {
+fn format_issue_ref(issue_ref: Option<&crate::client::proto::IssueRef>) -> String {
     use crate::client::proto::issue_ref::Ref;
     match issue_ref {
         None => "-".to_string(),
@@ -302,27 +302,27 @@ mod tests {
 
     #[test]
     fn format_none_returns_dash() {
-        assert_eq!(format_issue_ref(&None), "-");
+        assert_eq!(format_issue_ref(None), "-");
     }
 
     #[test]
     fn format_empty_inner_ref_returns_dash() {
-        assert_eq!(format_issue_ref(&Some(IssueRef { r#ref: None })), "-");
+        assert_eq!(format_issue_ref(Some(&IssueRef { r#ref: None })), "-");
     }
 
     #[test]
     fn format_github() {
-        assert_eq!(format_issue_ref(&github("acme", "app", "42")), "github:acme/app#42");
+        assert_eq!(format_issue_ref(github("acme", "app", "42").as_ref()), "github:acme/app#42");
     }
 
     #[test]
     fn format_centy() {
-        assert_eq!(format_issue_ref(&centy("acme", "proj", "7")), "centy:acme/proj#7");
+        assert_eq!(format_issue_ref(centy("acme", "proj", "7").as_ref()), "centy:acme/proj#7");
     }
 
     #[test]
     fn format_jira() {
-        assert_eq!(format_issue_ref(&jira("PROJ-123")), "jira:PROJ-123");
+        assert_eq!(format_issue_ref(jira("PROJ-123").as_ref()), "jira:PROJ-123");
     }
 
     #[tokio::test]
