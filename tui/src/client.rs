@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn task_list_ok_arm_returns_tasks() {
         let task = Task { id: "t1".into(), ..Default::default() };
-        let task_list = proto::TaskList { tasks: vec![task.clone()] };
+        let task_list = proto::TaskList { tasks: vec![task] };
         let result = parse_task_list(Some(proto::list_queue_response::Result::Ok(task_list)));
         let tasks = result.unwrap();
         assert_eq!(tasks.len(), 1);
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn worker_status_ok_arm_returns_some() {
         let data = WorkerStatusData { total: 4, busy: 1, idle: 3, workers: vec![] };
-        let result = parse_worker_status(Some(proto::worker_status_response::Result::Ok(data.clone())));
+        let result = parse_worker_status(Some(proto::worker_status_response::Result::Ok(data)));
         let got = result.unwrap().unwrap();
         assert_eq!(got.total, 4);
         assert_eq!(got.busy, 1);
