@@ -37,6 +37,13 @@ use_self = "deny"
 # of either the value or the option, so callers can pass `opt.as_ref()` without
 # owning the data. The more idiomatic and flexible API shape.
 ref_option = "deny"
+# Forbid an `else` block when the preceding `if` already diverges (returns,
+# breaks, or continues). The `else` is redundant — its body can be de-indented
+# to follow the `if` directly, since control only reaches it when the `if` was
+# not taken. Flattening the happy path keeps the dominant branch at the outer
+# indentation level instead of nesting it inside `else`. Mirrors the same rule
+# enabled in the `daemon` crate.
+redundant_else = "deny"
 # Prefer `.copied()` over `.cloned()` on iterators/Options of `Copy` types.
 # `.copied()` documents that the element is trivially copyable, whereas
 # `.cloned()` reads as a potentially expensive deep clone. If the type later
