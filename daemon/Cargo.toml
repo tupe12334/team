@@ -31,6 +31,10 @@ unwrap_used = "deny"
 # Prefer propagating errors with `?` or explicit handling instead.
 # (Tests are exempted via cfg(test) in main.rs.)
 expect_used = "deny"
+# Flag `.clone()` calls whose result is dropped without further use: the clone
+# allocates a fresh copy only to throw it away, so the original can be moved
+# instead. Removing these saves needless allocations and reads more clearly.
+redundant_clone = "deny"
 # Require the `Self` keyword instead of repeating the enclosing type name
 # inside an `impl` block. Keeps impls DRY and rename-safe: renaming the type
 # needs no edits to `Self`-based references, and the intent reads clearer.
@@ -66,9 +70,27 @@ cloned_instead_of_copied = "deny"
 # empty `String`. Mirrors the same rule already enforced in the `tui` crate,
 # keeping empty-string construction consistent across both Rust crates.
 manual_string_new = "deny"
+# Forbid an `else` block when the preceding `if` already diverges (returns,
+# breaks, or continues). The `else` is redundant — its body can be de-indented
+# to follow the `if` directly, since control only reaches it when the `if` was
+# not taken. Pairs naturally with `manual_let_else` above: the daemon's many
+# parsing guards already bail early, so the non-guard path belongs at the outer
+# indentation level rather than nested inside `else`. Mirrors the same rule
+# enabled in the `tui` crate.
+redundant_else = "deny"
 # Flag separate `match` arms that share an identical body so they can be merged
 # into one arm with an `|`-pattern. Collapsing the duplicate keeps the match DRY
 # and makes accidental divergence (editing one copy of the body but not the
 # other) impossible, since there is only ever one body to maintain.
 # Mirrors the same rule enforced in the `tui` crate.
 match_same_arms = "deny"
+# Forbid glob-importing an enum's variants (`use SomeEnum::*`). A glob pulls an
+# unknown, version-dependent set of bare variant names into scope, so a reader can
+# no longer tell which enum a given variant belongs to, and adding a variant
+# upstream can silently shadow or collide with a local name. The daemon already
+# refers to its generated proto enums explicitly (e.g.
+# `reload_config_response::Result::Ok`); this lint locks that style in, keeping
+# each variant's provenance visible at the use site and the import surface
+# auditable. No current violations exist, so `deny` keeps the build green while
+# preventing future regressions. Mirrors the same rule enforced in the `tui` crate.
+enum_glob_use = "deny"
