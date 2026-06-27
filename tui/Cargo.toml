@@ -41,6 +41,11 @@ redundant_clone = "deny"
 # of either the value or the option, so callers can pass `opt.as_ref()` without
 # owning the data. The more idiomatic and flexible API shape.
 ref_option = "deny"
+# Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
+# form is a single call that states "map, or this default" in one place, instead
+# of building an intermediate `Option` only to immediately unwrap it. Shorter,
+# clearer intent, and avoids the easy-to-misread two-step chain.
+map_unwrap_or = "deny"
 # Forbid an `else` block when the preceding `if` already diverges (returns,
 # breaks, or continues). The `else` is redundant — its body can be de-indented
 # to follow the `if` directly, since control only reaches it when the `if` was
