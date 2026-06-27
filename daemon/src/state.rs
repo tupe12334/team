@@ -378,7 +378,7 @@ mod tests {
         let path = "/tmp/nonexistent-config-state-test.toml".to_string();
         let _ = std::fs::remove_file(&path);
         let mut state = AppState {
-            config_path: path.clone(),
+            config_path: path,
             queue_path: "/tmp/state-test-queue.json".into(),
             queue: Vec::new(),
             workers: Vec::new(),
