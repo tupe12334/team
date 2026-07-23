@@ -92,3 +92,10 @@ match_same_arms = "deny"
 # auditable. No current violations exist, so `deny` keeps the build green while
 # preventing future regressions. Mirrors the same rule enforced in the `tui` crate.
 enum_glob_use = "deny"
+# Prefer `for x in &collection` / `&mut collection` over an explicit
+# `.iter()`/`.iter_mut()` call in a `for` loop. The borrow form states "iterate
+# this" without making the reader confirm which iterator method was used —
+# `.iter()` vs `.into_iter()` vs `.iter_mut()` change ownership semantics, so
+# the `&`/`&mut` form makes the borrow obvious at the loop head. Mirrors the
+# same rule enforced in the `tui` crate.
+explicit_iter_loop = "deny"
