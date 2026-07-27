@@ -138,6 +138,10 @@ Sources
 
 `team` is responsible only for queue state and worker concurrency. When a worker slot opens it calls `worktree open <issue-ref>`, optionally setting `TEAM_AGENT` so the `post:open` hook runs the right gstack skill (e.g. `claude --dangerously-skip-permissions /review`). All worktree creation, branch management, and agent invocation are handled by `worktree-io`.
 
+## Related Projects
+
+- [moadim](https://moadim.io/) — loop engineering: build, schedule & run agent loops.
+
 ## License
 
 MIT
