@@ -41,6 +41,14 @@ redundant_clone = "deny"
 # of either the value or the option, so callers can pass `opt.as_ref()` without
 # owning the data. The more idiomatic and flexible API shape.
 ref_option = "deny"
+# Require an explicit trailing `;` on a statement whose value is `()` (e.g. a
+# `f.render_widget(...)` call used purely for its side effect). Without the
+# semicolon that unit value becomes the block's tail expression, blurring the
+# line between "this block yields a value" and "this block runs for effect".
+# Enforcing the semicolon keeps the render helpers unambiguous and guards
+# against an accidental implicit return if a function is later changed to return
+# a non-`()` value. Mirrors the same rule added to the `daemon` crate.
+semicolon_if_nothing_returned = "deny"
 # Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
 # form is a single call that states "map, or this default" in one place, instead
 # of building an intermediate `Option` only to immediately unwrap it. Shorter,

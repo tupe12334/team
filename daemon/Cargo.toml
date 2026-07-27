@@ -68,6 +68,14 @@ cloned_instead_of_copied = "deny"
 # empty `String`. Mirrors the same rule already enforced in the `tui` crate,
 # keeping empty-string construction consistent across both Rust crates.
 manual_string_new = "deny"
+# Require an explicit trailing `;` on a statement whose value is `()` (e.g. a
+# call to a unit-returning function used purely for its side effect). Without the
+# semicolon that unit value becomes the block's tail expression, blurring the
+# line between "this block yields a value" and "this block runs for effect".
+# Enforcing the semicolon keeps the daemon's `?`-heavy handlers unambiguous and
+# guards against an accidental implicit return if a function is later changed to
+# return a non-`()` value. Mirrors the same rule added to the `tui` crate.
+semicolon_if_nothing_returned = "deny"
 # Forbid an `else` block when the preceding `if` already diverges (returns,
 # breaks, or continues). The `else` is redundant — its body can be de-indented
 # to follow the `if` directly, since control only reaches it when the `if` was
