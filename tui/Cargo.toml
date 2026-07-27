@@ -41,6 +41,11 @@ redundant_clone = "deny"
 # of either the value or the option, so callers can pass `opt.as_ref()` without
 # owning the data. The more idiomatic and flexible API shape.
 ref_option = "deny"
+# Replace a closure that only forwards its argument to a method call with a
+# direct method reference (e.g. `.map(|s| s.to_string())` -> `.map(ToString::to_string)`).
+# Removes a redundant closure layer so the method-path states intent directly,
+# matching the clarity-focused lints above. Mirrored in the `daemon` crate.
+redundant_closure_for_method_calls = "deny"
 # Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
 # form is a single call that states "map, or this default" in one place, instead
 # of building an intermediate `Option` only to immediately unwrap it. Shorter,

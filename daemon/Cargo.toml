@@ -51,6 +51,11 @@ manual_let_else = "deny"
 # the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
 # allocation-free and the intent direct.
 needless_collect = "deny"
+# Replace a closure that only forwards its argument to a method call with a
+# direct method reference (e.g. `.map(|s| s.to_string())` -> `.map(ToString::to_string)`).
+# Removes a redundant closure layer so the method-path states intent directly,
+# matching the clarity-focused lints above. Mirrored in the `tui` crate.
+redundant_closure_for_method_calls = "deny"
 # Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
 # form is a single call that states "map, or this default" in one place, instead
 # of building an intermediate `Option` only to immediately unwrap it. Shorter,
