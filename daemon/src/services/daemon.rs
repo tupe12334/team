@@ -70,6 +70,7 @@ impl DaemonService for DaemonServiceImpl {
         &self,
         request: Request<UpdateConfigRequest>,
     ) -> Result<Response<UpdateConfigResponse>, Status> {
+        const VALID_LOG_LEVELS: &[&str] = &["error", "warn", "info", "debug", "trace"];
         let mut new_config = request
             .into_inner()
             .config
@@ -85,7 +86,6 @@ impl DaemonService for DaemonServiceImpl {
                 )),
             }));
         }
-        const VALID_LOG_LEVELS: &[&str] = &["error", "warn", "info", "debug", "trace"];
         if !VALID_LOG_LEVELS.contains(&new_config.log_level.as_str()) {
             return Ok(Response::new(UpdateConfigResponse {
                 result: Some(update_config_response::Result::Error(format!(

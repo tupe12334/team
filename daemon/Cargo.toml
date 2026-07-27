@@ -51,6 +51,13 @@ manual_let_else = "deny"
 # the original iterator (`.any()`, `.count()`, …). Keeps the daemon's hot paths
 # allocation-free and the intent direct.
 needless_collect = "deny"
+# Forbid declaring items (`const`, `fn`, `struct`, `use`, …) after statements
+# inside a block. The compiler hoists items to the top of their scope, so a
+# `const` written halfway down a function is already visible from the block's
+# first line — placing it there matches that reality and saves the reader from
+# scanning past runtime statements to discover a declaration. Move such items
+# to the top of the scope.
+items_after_statements = "deny"
 # Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
 # form is a single call that states "map, or this default" in one place, instead
 # of building an intermediate `Option` only to immediately unwrap it. Shorter,
