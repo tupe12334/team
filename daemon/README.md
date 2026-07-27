@@ -28,6 +28,8 @@ Override the config file location:
 CONFIG_PATH=~/.config/team/config.toml DAEMON_PORT=50051 ./target/release/daemon
 ```
 
+Override the bind address with `DAEMON_HOST` (defaults to `[::1]`, loopback-only). For example, `DAEMON_HOST=[::]` binds all interfaces, which is required when the daemon runs in a container and other containers need to reach it.
+
 ## Services
 
 Implements four gRPC services defined in `../proto/`:

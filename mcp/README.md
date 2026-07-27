@@ -5,7 +5,7 @@ An MCP (Model Context Protocol) server that exposes the team daemon's gRPC API a
 ## Build
 
 ```bash
-go build -o team-mcp .
+go build -o mcp-server .
 ```
 
 Or from the repo root:
@@ -17,7 +17,7 @@ make build
 ## Run
 
 ```bash
-./team-mcp
+./mcp-server
 ```
 
 The server communicates over stdio (MCP standard). It connects to the daemon at `[::1]:50051` by default — override with the `DAEMON_ADDR` environment variable.
@@ -39,7 +39,7 @@ Add to your `claude_desktop_config.json` (or MCP settings):
 {
   "mcpServers": {
     "team": {
-      "command": "/path/to/team-mcp",
+      "command": "/path/to/mcp-server",
       "env": {
         "DAEMON_ADDR": "[::1]:50051"
       }

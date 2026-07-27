@@ -43,6 +43,8 @@ Copy `.env.example` to `.env` and set:
 DAEMON_PORT=50051       # gRPC port the daemon listens on
 ```
 
+Optionally set `DAEMON_HOST` to override the bind address (defaults to `[::1]`, loopback-only). Use `DAEMON_HOST=[::]` to bind all interfaces — e.g. when running the daemon in Docker (see `docker-compose.yml`).
+
 The daemon config file (`~/.config/team/config.toml` by default, override with `CONFIG_PATH` env var):
 
 ```toml
