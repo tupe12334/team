@@ -41,13 +41,11 @@ redundant_clone = "deny"
 # of either the value or the option, so callers can pass `opt.as_ref()` without
 # owning the data. The more idiomatic and flexible API shape.
 ref_option = "deny"
-# Prefer `for x in &collection` / `&mut collection` over the explicit
-# `for x in collection.iter()` / `.iter_mut()`. The borrow form is the
-# idiomatic Rust loop, drops the redundant adaptor call, and reads as
-# "iterate this" without the reader checking which iterator method was used.
-# Mirrors the same rule enforced in the `daemon` crate, keeping both Rust
-# crates consistent.
-explicit_iter_loop = "deny"
+# Prefer `.map_or(default, f)` over `.map(f).unwrap_or(default)`. The combined
+# form is a single call that states "map, or this default" in one place, instead
+# of building an intermediate `Option` only to immediately unwrap it. Shorter,
+# clearer intent, and avoids the easy-to-misread two-step chain.
+map_unwrap_or = "deny"
 # Forbid an `else` block when the preceding `if` already diverges (returns,
 # breaks, or continues). The `else` is redundant — its body can be de-indented
 # to follow the `if` directly, since control only reaches it when the `if` was
@@ -75,3 +73,10 @@ match_same_arms = "deny"
 # green while preventing future regressions. Mirrors the same rule enforced in the
 # `daemon` crate.
 enum_glob_use = "deny"
+# Prefer `for x in &collection` / `&mut collection` over an explicit
+# `.iter()`/`.iter_mut()` call in a `for` loop. The borrow form states "iterate
+# this" without making the reader confirm which iterator method was used —
+# `.iter()` vs `.into_iter()` vs `.iter_mut()` change ownership semantics, so
+# the `&`/`&mut` form makes the borrow obvious at the loop head. Mirrors the
+# same rule enforced in the `daemon` crate.
+explicit_iter_loop = "deny"
