@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/tupe12334/linecheck/main/schema/linecheck.schema.json
+
+# Started looser than the --default preset (200 warn / 400 error) on purpose:
+# a first scan found several existing Rust/TS files already past 400/200 lines.
+# Error thresholds sit above today's largest offenders so this doesn't break
+# CI on day one; warn thresholds match --default to surface growth going
+# forward. Tighten error thresholds once the existing warns are addressed.
+rules:
+  - pattern: "**/*.rs"
+    warn: 300
+    warn_message: "Getting long — consider splitting into submodules"
+    error: 1200
+    error_message: "Too large to review easily; split this file soon"
+  - pattern: "**/*.tsx"
+    warn: 200
+    warn_message: "Consider breaking this into smaller components"
+    error: 600
+    error_message: "File exceeds the hard limit — split before merging"
+  - pattern: "**/*.ts"
+    warn: 200
+    warn_message: "Consider breaking this into smaller components"
+    error: 600
+    error_message: "File exceeds the hard limit — split before merging"
+  - pattern: "**/*.go"
+    warn: 200
+    warn_message: "Consider splitting into smaller files"
+    error: 400
+    error_message: "File exceeds the hard limit — split before merging"
+
+exclude:
+  - "**/Cargo.lock"
+  - "**/pnpm-lock.yaml"
+  - "**/go.sum"
+  - "**/go.work.sum"
+  - "**/node_modules/**"
+  - "**/target/**"
+  - "**/.next/**"
+  - "**/dist/**"
